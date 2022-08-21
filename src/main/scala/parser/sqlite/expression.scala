@@ -2,8 +2,32 @@ package dev.dskrzypiec.parser.sqlite
 
 import fastparse._, NoWhitespace._
 import dev.dskrzypiec.parser.Common._
+import dev.dskrzypiec.parser.sqlite.Identifier.id
 
 object Expr {
+  // schema-name.?table-name.?column-name
+  object Column {
+    def columnExpr[_ : P]: P[SqliteColumnExpr] = {
+      P(columnFullExpr | columnSchema | columnNameOnly)
+    }
+
+    def columnFullExpr[_ : P]: P[SqliteColumnExpr] = {
+      P(id.! ~ dot ~ id.! ~ dot ~ id.!).map {
+        e => SqliteColumnExpr(Some(e._1), Some(e._2), e._3)
+      }
+    }
+
+    def columnSchema[_ : P]: P[SqliteColumnExpr] = {
+      P(id.! ~ dot ~ id.!).map {
+        e => SqliteColumnExpr(tableName = Some(e._1), columnName = e._2)
+      }
+    }
+
+    def columnNameOnly[_ : P]: P[SqliteColumnExpr] = {
+      P(id).map(e => SqliteColumnExpr(columnName = e))
+    }
+  }
+
   object Literal {
     def decimal[_ : P]: P[Double] = P(decimalHex | decimalSci | decimalSimple)
 
