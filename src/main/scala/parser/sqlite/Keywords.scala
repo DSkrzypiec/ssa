@@ -153,7 +153,7 @@ object Keyword {
         "window",
         "with",
         "without"
-      ) ~ &(" " | "\t" | "\n" | "\r" | End)
+      ) ~ peekWs
     ).!
   }
 }

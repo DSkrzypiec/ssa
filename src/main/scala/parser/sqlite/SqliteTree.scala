@@ -6,13 +6,19 @@ sealed trait SqliteToken
 sealed trait SqliteExpr extends SqliteToken
 case class SqliteId(value: String) extends SqliteToken
 
-sealed trait SqliteLiteralValue extends SqliteExpr
-case class SqliteNumericLit(value: Double) extends SqliteLiteralValue
-case class SqliteStringLit(value: String) extends SqliteLiteralValue
-case class SqliteBlobLit(value: String) extends SqliteLiteralValue
-case object SqliteNull extends SqliteLiteralValue
-case object SqliteTrue extends SqliteLiteralValue
-case object SqliteFalse extends SqliteLiteralValue
+sealed trait SqliteLiteral extends SqliteExpr
+case class SqliteIntegerLit(value: Int) extends SqliteLiteral
+case class SqliteDoubleLit(value: Double) extends SqliteLiteral
+case class SqliteHexLit(input: String, value: Int) extends SqliteLiteral
+case class SqliteStringLit(value: String) extends SqliteLiteral
+case class SqliteBlobLit(value: String) extends SqliteLiteral
+case class SqliteNull() extends SqliteLiteral
+case class SqliteTrue() extends SqliteLiteral
+case class SqliteFalse() extends SqliteLiteral
+case class SqliteCurrentTimestamp() extends SqliteLiteral
+case class SqliteCurrentTime() extends SqliteLiteral
+case class SqliteCurrentDate() extends SqliteLiteral
+case class SqliteLiteralError() extends SqliteLiteral
 
 case class SqliteColumnExpr(
   schemaName: Option[String] = None,
@@ -25,7 +31,4 @@ case class SqliteColumnExpr(
 sealed trait SqliteKeyword extends SqliteToken
 case object SELECT extends SqliteKeyword
 case object CURRENT extends SqliteKeyword
-case object CURRENT_DATE extends SqliteKeyword
-case object CURRENT_TIME extends SqliteKeyword
-case object CURRENCT_TIMESTAMP extends SqliteKeyword
 

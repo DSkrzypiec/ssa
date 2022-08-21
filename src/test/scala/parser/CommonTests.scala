@@ -23,6 +23,24 @@ class CommonTests extends UnitSpec {
     assertResult(Parsed.Success((), 4)) {parse(" \n\t ", ws(_))}
   }
 
+  // peekWs
+  "a and space" should "be parsed as 'a'" in {
+    def pp[_ : P]: P[Unit] = P("a" ~ peekWs)
+    assertResult(Parsed.Success((), 1)) {parse("a ", pp(_))}
+  }
+  "a and end of input" should "be parsed as 'a'" in {
+    def pp[_ : P]: P[Unit] = P("a" ~ peekWs)
+    assertResult(Parsed.Success((), 1)) {parse("a", pp(_))}
+  }
+  "a and newline and tab" should "be parsed as 'a'" in {
+    def pp[_ : P]: P[Unit] = P("a" ~ peekWs)
+    assertResult(Parsed.Success((), 1)) {parse("a\n", pp(_))}
+  }
+  "a and tab and newline" should "be parsed as 'a'" in {
+    def pp[_ : P]: P[Unit] = P("a" ~ peekWs)
+    assertResult(Parsed.Success((), 1)) {parse("a\t\n", pp(_))}
+  }
+
   // digit
   "0" should "be a digit" in {
     assertResult(Parsed.Success((), 1)) {parse("0", digit(_))}
