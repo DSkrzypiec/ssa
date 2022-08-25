@@ -5,10 +5,87 @@ import dev.dskrzypiec.parser.Common._
 import dev.dskrzypiec.parser.sqlite.Identifier.id
 
 object Expr {
-  def expr[_ : P]: P[SqliteExpr] = {
-    P(
-      Column.columnExpr // | Literal | ...
-    )
+  // TODO: Parser for parsing Sqlite expression.
+  def expr[_ : P]: P[SqliteExpr] = P(BinaryOp.comp)
+
+  def exprSingle[_ : P]: P[SqliteExpr] = P(Column.columnExpr | Literal.literal | CaseExpr.caseExpr)
+  def exprInParen[_ : P]: P[SqliteExpr] = P("(" ~/ expr ~ ")")
+  def exprSingleOrParen[_ : P]: P[SqliteExpr] = P(exprSingle | exprInParen)
+
+
+  // Binary operators and its precedence
+  object BinaryOp {
+    def concat[_ : P]: P[SqliteExpr] =
+      P(exprSingleOrParen ~ ws ~ (StringIn("||", "->", "->>").! ~ ws ~ exprSingleOrParen ~ ws).rep).map(x => binaryOpTreeBuilder(x._1, x._2))
+
+    def divMul[_ : P]: P[SqliteExpr] =
+      P(concat ~ ws ~ (CharIn("*/%").! ~ ws ~ concat ~ ws).rep).map(x => binaryOpTreeBuilder(x._1, x._2))
+
+    def addSub[_ : P]: P[SqliteExpr] =
+      P(divMul ~ ws ~ (CharIn("+\\-").! ~ ws ~ divMul).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
+
+    def shift[_ : P]: P[SqliteExpr] =
+      P(addSub ~ ws ~ (StringIn("&", "|", "<<", ">>").! ~ ws ~ addSub).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
+
+    def ineq[_ : P]: P[SqliteExpr] =
+      P(shift ~ ws ~ (StringIn("<", "<=", ">", ">=").! ~ ws ~ shift).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
+
+    def comp[_ : P]: P[SqliteExpr] =
+      P(ineq ~ ws ~ (StringIn("=", "<>", "!=" /* TODO: IS NULL etc. */).! ~ ws ~ ineq).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
+
+    def binaryOpTreeBuilder(prev: SqliteExpr, ss: Seq[(String, SqliteExpr)]): SqliteExpr = {
+      ss match {
+        case Seq() => prev
+        case Seq((op, expr)) => SqliteBinaryOp(charToBinaryOpSign(op), prev, expr)
+        case Seq((headOp, headExpr), tail @ _*) => {
+          SqliteBinaryOp(charToBinaryOpSign(headOp), prev, binaryOpTreeBuilder(headExpr, tail))
+        }
+      }
+    }
+
+    def charToBinaryOpSign(c: String): SqliteBinaryOpSign = c match {
+      case "+" => ADD
+      case "-" => SUB
+      case "*" => MUL
+      case "/" => DIV
+      case "%" => MOD
+      case "||" => CONCAT
+      case "->" => ARROW
+      case "->>" => DOUBLE_ARROW
+      case "&" => BITAND
+      case "|" => BITOR
+      case "<<" => LSHIFT
+      case ">>" => RSHIFT
+      case "<" => LESS_THEN
+      case ">" => GREATER_THEN
+      case "<=" => LESS_OR_EQ
+      case ">=" => GREATER_OR_EQ
+      case "=" => EQUAL
+      case "==" => EQUAL
+      case "!=" => NOT_EQUAL
+      case "<>" => NOT_EQUAL
+      case _ => UNKNOWN_BINOP
+    }
+  }
+
+  // CASE ... WHEN ... THEN ... ELSE ... END
+  object CaseExpr {
+    def caseExpr[_ : P]: P[SqliteCaseExpr] = {
+      P(caseInitExpr ~ ws ~ caseWhenThens ~ ws ~ caseElse ~ ws ~ caseEnd).map(
+        e => SqliteCaseExpr(e._1, e._2.toList, e._3)
+      )
+    }
+
+    def caseInitExpr[_: P]: P[Option[SqliteExpr]] =
+      P(IgnoreCase("CASE") ~ ws ~ expr.?)
+
+    def caseWhenThens[_ : P]: P[Seq[SqliteCaseWhenThen]] =
+      P(IgnoreCase("WHEN") ~ ws ~ expr ~ ws ~ IgnoreCase("THEN") ~ ws ~ expr).rep(1).map (
+        e => e.map(p => SqliteCaseWhenThen(p._1, p._2))
+      )
+
+    def caseElse[_ : P]: P[Option[SqliteExpr]] = P(IgnoreCase("ELSE") ~ ws ~ expr).?
+    def caseEnd[_ : P] = P(IgnoreCase("END"))
   }
 
   // schema-name.?table-name.?column-name

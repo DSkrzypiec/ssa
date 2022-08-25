@@ -26,6 +26,46 @@ case class SqliteColumnExpr(
   columnName: String
 ) extends SqliteExpr
 
+// CASE
+case class SqliteCaseExpr(
+  initalExpr: Option[SqliteExpr] = None,
+  whenThens: List[SqliteCaseWhenThen],
+  elseExpr: Option[SqliteExpr] = None
+) extends SqliteExpr
+case class SqliteCaseWhenThen(when: SqliteExpr, then: SqliteExpr) extends SqliteExpr
+
+// Binary expressions and operators
+sealed trait SqliteBinaryOpExpr extends SqliteExpr
+case class SqliteBinaryOp(
+  op: SqliteBinaryOpSign,
+  left: SqliteExpr,
+  right: SqliteExpr,
+
+) extends SqliteBinaryOpExpr
+
+
+sealed trait SqliteBinaryOpSign
+case object ADD extends SqliteBinaryOpSign
+case object SUB extends SqliteBinaryOpSign
+case object MUL extends SqliteBinaryOpSign
+case object DIV extends SqliteBinaryOpSign
+case object MOD extends SqliteBinaryOpSign
+case object CONCAT extends SqliteBinaryOpSign
+case object ARROW extends SqliteBinaryOpSign
+case object DOUBLE_ARROW extends SqliteBinaryOpSign
+case object BITAND extends SqliteBinaryOpSign
+case object BITOR extends SqliteBinaryOpSign
+case object LSHIFT extends SqliteBinaryOpSign
+case object RSHIFT extends SqliteBinaryOpSign
+case object LESS_THEN extends SqliteBinaryOpSign
+case object GREATER_THEN extends SqliteBinaryOpSign
+case object LESS_OR_EQ extends SqliteBinaryOpSign
+case object GREATER_OR_EQ extends SqliteBinaryOpSign
+case object EQUAL extends SqliteBinaryOpSign
+case object NOT_EQUAL extends SqliteBinaryOpSign
+
+case object UNKNOWN_BINOP extends SqliteBinaryOpSign
+
 
 // Keywords
 sealed trait SqliteKeyword extends SqliteToken
