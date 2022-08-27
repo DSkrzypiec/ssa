@@ -5,13 +5,13 @@ import dev.dskrzypiec.parser.Common._
 import dev.dskrzypiec.parser.sqlite.Identifier.id
 
 object Expr {
+  // TODO: Unary operators!
   // TODO: Parser for parsing Sqlite expression.
   def expr[_ : P]: P[SqliteExpr] = P(BinaryOp.comp)
 
-  def exprSingle[_ : P]: P[SqliteExpr] = P(Column.columnExpr | Literal.literal | CaseExpr.caseExpr)
+  def exprSingle[_ : P]: P[SqliteExpr] = P(FuncCallExpr.funcExpr | Column.columnExpr | Literal.literal | CaseExpr.caseExpr)
   def exprInParen[_ : P]: P[SqliteExpr] = P("(" ~/ expr ~ ")")
   def exprSingleOrParen[_ : P]: P[SqliteExpr] = P(exprSingle | exprInParen)
-
 
   // Binary operators and its precedence
   object BinaryOp {
@@ -68,6 +68,13 @@ object Expr {
     }
   }
 
+  // f(...)
+  object FuncCallExpr {
+    def funcExpr[_ : P]: P[SqliteFuncCall] =
+      // TODO: Should also handle "*", "DISTINCT" and FILTER and OVER clauses
+      P(id ~ openParen ~ (expr ~ ws ~ comma.?).rep(1) ~ closeParen).map(e => SqliteFuncCall(e._1, e._2.toList))
+  }
+
   // CASE ... WHEN ... THEN ... ELSE ... END
   object CaseExpr {
     def caseExpr[_ : P]: P[SqliteCaseExpr] = {
@@ -108,7 +115,7 @@ object Expr {
     }
 
     def columnNameOnly[_ : P]: P[SqliteColumnExpr] = {
-      P(id).map(e => SqliteColumnExpr(columnName = e))
+      P(id ~ !openParen).map(e => SqliteColumnExpr(columnName = e))
     }
   }
 

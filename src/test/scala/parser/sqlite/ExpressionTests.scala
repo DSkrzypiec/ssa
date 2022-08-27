@@ -100,6 +100,45 @@ class ExpressionTests extends UnitSpec {
       parse("case when 1 + 3 > 1 then 10 else 0 end + 10 * 42", expr(_))
     }
   }
-
+  "sum(x  + 10)" should "be parsed as simple function call" in {
+    val expected = SqliteFuncCall(
+      func = "sum",
+      args = List(SqliteBinaryOp(ADD, SqliteColumnExpr(columnName = "x"), SqliteIntegerLit(10)))
+    )
+    assertResult(Parsed.Success(expected, 12)) { parse("sum(x  + 10)", FuncCallExpr.funcExpr(_)) }
+  }
+  "sum(x  + 10)" should "be parsed with expr(_) as simple function call" in {
+    val expected = SqliteFuncCall(
+      func = "sum",
+      args = List(SqliteBinaryOp(ADD, SqliteColumnExpr(columnName = "x"), SqliteIntegerLit(10)))
+    )
+    assertResult(Parsed.Success(expected, 12)) { parse("sum(x  + 10)", expr(_)) }
+  }
+  "min(x * (y + 10))" should "be parsed as simple function call" in {
+    val argTree = SqliteBinaryOp(
+      op = MUL,
+      left = SqliteColumnExpr(columnName = "x"),
+      right = SqliteBinaryOp(
+        op = ADD,
+        left = SqliteColumnExpr(columnName = "y"),
+        right = SqliteIntegerLit(10)
+      )
+    )
+    val expected = SqliteFuncCall(func = "min", args = List(argTree))
+    assertResult(Parsed.Success(expected, 17)) { parse("min(x * (y + 10))", FuncCallExpr.funcExpr(_)) }
+  }
+  "min(x * (y + 10))" should "be parsed with expr(_) as simple function call" in {
+    val argTree = SqliteBinaryOp(
+      op = MUL,
+      left = SqliteColumnExpr(columnName = "x"),
+      right = SqliteBinaryOp(
+        op = ADD,
+        left = SqliteColumnExpr(columnName = "y"),
+        right = SqliteIntegerLit(10)
+      )
+    )
+    val expected = SqliteFuncCall(func = "min", args = List(argTree))
+    assertResult(Parsed.Success(expected, 17)) { parse("min(x * (y + 10))", expr(_)) }
+  }
   // much more unit tests for binary ops
 }

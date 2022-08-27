@@ -34,6 +34,21 @@ case class SqliteCaseExpr(
 ) extends SqliteExpr
 case class SqliteCaseWhenThen(when: SqliteExpr, then: SqliteExpr) extends SqliteExpr
 
+// Function call
+case class SqliteFuncCall(
+  func: String, //SqliteFunction,
+  args: List[SqliteExpr],
+  starAsArg: Boolean = false,
+  distinctArgs: Boolean = false
+) extends SqliteExpr
+
+sealed trait SqliteFunction
+case object COUNT extends SqliteFunction
+case object MIN extends SqliteFunction
+case object MAX extends SqliteFunction
+case object SUM extends SqliteFunction
+case object AVG extends SqliteFunction
+
 // Binary expressions and operators
 sealed trait SqliteBinaryOpExpr extends SqliteExpr
 case class SqliteBinaryOp(

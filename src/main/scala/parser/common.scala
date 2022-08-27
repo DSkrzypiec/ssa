@@ -12,6 +12,10 @@ object Common {
   def hexPrefix[_ : P] = P("0" ~ IgnoreCase("x"))
   def hexChar[_ : P] = P(digit | CharIn("a-f") | CharIn("A-F"))
   def dot[_ : P] = P(".")
+  def comma[_ : P] = P(",")
+  def star[_ : P] = P("*")
   def underscore[_ : P] = P("_")
+  def openParen[_ : P] = P("(")
+  def closeParen[_ : P] = P(")")
   def dollar[_ : P] = P("$")
 }
