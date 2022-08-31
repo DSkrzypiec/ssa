@@ -24,6 +24,11 @@ case class SqliteTableName(
   tableAlias: Option[String] = None
 ) extends SqliteSelectComponent
 
+case class SqliteJoinConstraint(
+  joinExpression: Option[SqliteExpr] = None,
+  byColumnNames: List[String] = List()
+) extends SqliteSelectComponent
+
 // EXPR
 sealed trait SqliteLiteral extends SqliteExpr
 case class SqliteIntegerLit(value: Int) extends SqliteLiteral

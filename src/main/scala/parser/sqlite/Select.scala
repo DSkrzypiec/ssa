@@ -9,9 +9,26 @@ object SelectStmt {
   // Core part of SELECT statement
   // def selectCore[_ : P]: P[SqliteSelectComponent] = P()
 
+  object Joins {
+    // Parsing join constrain: either ON [expr] or USING (col1, col2, ...).
+    def joinConstrain[_ : P]: P[SqliteJoinConstraint] =
+      P(joinExpression | joinByColumns).map(
+        e => e match {
+          case expr: SqliteExpr => SqliteJoinConstraint(joinExpression = Some(expr))
+          case cols: Seq[String] => SqliteJoinConstraint(byColumnNames = cols.toList)
+        }
+      )
+
+    def joinExpression[_ : P]: P[SqliteExpr] = P(icWord("on") ~ ws ~ expr)
+
+    def joinByColumns[_ : P]: P[Seq[String]] =
+      P(icWord("using") ~ ws ~ openParen ~ (ws ~ id.! ~ ws).rep(sep=",") ~ closeParen)
+  }
+
   object TableOrSub {
-    // def tableOrSubquery[_ : P]: P[SqliteSelectComponent] = 
-    //
+    // TODO: the following is not the full definition
+    def tableOrSubquery[_ : P]: P[SqliteSelectComponent] = tableName
+
     def tableName[_ : P]: P[SqliteTableName] =
       P((id.! ~ dot).? ~ id.! ~ ws ~ icWord("as").? ~ ws ~ (id.!).?).map(
         e => SqliteTableName(schemaName = e._1, tableName = e._2, tableAlias = e._3)

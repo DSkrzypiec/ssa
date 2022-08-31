@@ -91,3 +91,39 @@ class SelectFromSourcesTests extends UnitSpec {
     parse("schema.table AS  ", TableOrSub.tableName(_)) shouldBe a [Parsed.Failure]
   }
 }
+
+class SelectJoinsTests extends UnitSpec {
+  "ON 1 = 1" should "be parsed as valid join constraint" in {
+    val expected = SqliteJoinConstraint(
+      joinExpression = Some(SqliteBinaryOp(EQUAL, SqliteIntegerLit(1), SqliteIntegerLit(1)))
+    )
+    assertResult(Parsed.Success(expected, 8)) { parse("ON 1 = 1", Joins.joinConstrain(_)) }
+  }
+  "ON t1.id > t2.id" should "be parsed as valid join constraint" in {
+    val expected = SqliteJoinConstraint(
+      joinExpression = Some(
+        SqliteBinaryOp(
+          op = GREATER_THEN,
+          left = SqliteColumnExpr(tableName = Some("t1"), columnName = "id"),
+          right = SqliteColumnExpr(tableName = Some("t2"), columnName = "id"),
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, 16)) { parse("ON t1.id > t2.id", Joins.joinConstrain(_)) }
+  }
+  "Using ( id )" should "be parsed as valid join constraint" in {
+    val expected = SqliteJoinConstraint(byColumnNames = List("id"))
+    assertResult(Parsed.Success(expected, 12)) { parse("Using ( id )", Joins.joinConstrain(_)) }
+  }
+  "Using ( id,   keyCol )" should "be parsed as valid join constraint" in {
+    val expected = SqliteJoinConstraint(byColumnNames = List("id", "keyCol"))
+    assertResult(Parsed.Success(expected, 22)) { parse("Using ( id,   keyCol )", Joins.joinConstrain(_)) }
+  }
+  "Using ( id, crap" should "be parsed as valid join constraint" in {
+    val expected = SqliteJoinConstraint(byColumnNames = List("id"))
+    assertResult(Parsed.Success(expected, 12)) { parse("Using ( id )", Joins.joinConstrain(_)) }
+  }
+  "Using (id,   crap" should "not be parsed as valid join constraint - missing close parenthesis" in {
+    parse("Using (id,   crap", Joins.joinConstrain(_)) shouldBe a [Parsed.Failure]
+  }
+}
