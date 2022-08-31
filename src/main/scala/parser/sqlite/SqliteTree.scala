@@ -6,6 +6,25 @@ sealed trait SqliteToken
 sealed trait SqliteExpr extends SqliteToken
 case class SqliteId(value: String) extends SqliteToken
 
+// SELECT
+sealed trait SqliteSelectComponent extends SqliteToken
+
+case class SqliteResultCol(
+  colExpr: Option[SqliteExpr] = None,
+  colAlias: Option[String] = None,
+  isStar: Boolean = false,
+  isStarInTableName: Option[String] = None
+) extends SqliteSelectComponent
+
+case class SqliteResultStar() extends SqliteSelectComponent
+
+case class SqliteTableName(
+  schemaName: Option[String] = None,
+  tableName: String,
+  tableAlias: Option[String] = None
+) extends SqliteSelectComponent
+
+// EXPR
 sealed trait SqliteLiteral extends SqliteExpr
 case class SqliteIntegerLit(value: Int) extends SqliteLiteral
 case class SqliteDoubleLit(value: Double) extends SqliteLiteral

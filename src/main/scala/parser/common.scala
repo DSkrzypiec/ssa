@@ -18,4 +18,5 @@ object Common {
   def openParen[_ : P] = P("(")
   def closeParen[_ : P] = P(")")
   def dollar[_ : P] = P("$")
+  def icWord[_: P](word: String) = P(IgnoreCase(word))
 }
