@@ -119,11 +119,56 @@ class SelectJoinsTests extends UnitSpec {
     val expected = SqliteJoinConstraint(byColumnNames = List("id", "keyCol"))
     assertResult(Parsed.Success(expected, 22)) { parse("Using ( id,   keyCol )", Joins.joinConstrain(_)) }
   }
-  "Using ( id, crap" should "be parsed as valid join constraint" in {
-    val expected = SqliteJoinConstraint(byColumnNames = List("id"))
-    assertResult(Parsed.Success(expected, 12)) { parse("Using ( id )", Joins.joinConstrain(_)) }
-  }
   "Using (id,   crap" should "not be parsed as valid join constraint - missing close parenthesis" in {
     parse("Using (id,   crap", Joins.joinConstrain(_)) shouldBe a [Parsed.Failure]
+  }
+
+  "Inner Join" should "be parsed as INNER JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinInner(false), 10)) { parse("Inner Join", Joins.joinOperator(_)) }
+  }
+  "inner   JOIN" should "be parsed as INNER JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinInner(false), 12)) { parse("inner   JOIN", Joins.joinOperator(_)) }
+  }
+  "NATURAL inner   JOIN" should "be parsed as INNER JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinInner(false), 20)) { parse("NATURAL inner   JOIN", Joins.joinOperator(_)) }
+  }
+  "," should "be parser as inner join operator" in {
+    assertResult(Parsed.Success(SqliteJoinInner(true), 1)) { parse(",", Joins.joinOperator(_)) }
+  }
+  "LEFT  JOIN" should "be parsed as LEFT JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinLeft(), 10)) { parse("LEFT  JOIN", Joins.joinOperator(_)) }
+  }
+  "LEFT  Outer join" should "be parsed as LEFT JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinLeft(), 16)) { parse("LEFT  Outer join", Joins.joinOperator(_)) }
+  }
+  "nAtural LEFT  Outer join" should "be parsed as LEFT JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinLeft(), 24)) { parse("nAtural LEFT  Outer join", Joins.joinOperator(_)) }
+  }
+  "right  JOIN" should "be parsed as RIGHT JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinRight(), 11)) { parse("right  JOIN", Joins.joinOperator(_)) }
+  }
+  "right  OUTER join" should "be parsed as RIGHT JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinRight(), 17)) { parse("right  OUTER join", Joins.joinOperator(_)) }
+  }
+  "nAtural Right  outer join" should "be parsed as RIGHT JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinRight(), 25)) { parse("nAtural Right  outer join", Joins.joinOperator(_)) }
+  }
+  "full  join" should "be parsed as FULL JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinFull(), 10)) { parse("full  join", Joins.joinOperator(_)) }
+  }
+  "Full  Outer join" should "be parsed as FULL JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinFull(), 16)) { parse("Full  Outer join", Joins.joinOperator(_)) }
+  }
+  "nAtural fuLL  Outer join" should "be parsed as FULL JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinFull(), 24)) { parse("nAtural fuLL  Outer join", Joins.joinOperator(_)) }
+  }
+  "cross  join" should "be parsed as CROSS JOIN" in {
+    assertResult(Parsed.Success(SqliteJoinCross(), 11)) { parse("cross  join", Joins.joinOperator(_)) }
+  }
+  "Inner OUTER join" should "not be parsed as valid INNER JOIN" in {
+    parse("Inner OUTER join", Joins.joinOperator(_)) shouldBe a [Parsed.Failure]
+  }
+  "Natural cROSS join" should "not be parsed as valid CROSS JOIN" in {
+    parse("Natural cROSS join", Joins.joinOperator(_)) shouldBe a [Parsed.Failure]
   }
 }

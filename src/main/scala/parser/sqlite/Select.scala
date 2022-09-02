@@ -23,6 +23,32 @@ object SelectStmt {
 
     def joinByColumns[_ : P]: P[Seq[String]] =
       P(icWord("using") ~ ws ~ openParen ~ (ws ~ id.! ~ ws).rep(sep=",") ~ closeParen)
+
+    // [NATURAL] (LEFT | RIGHT | FULL) [OUTER] JOIN
+    def joinOperator[_ : P]: P[SqliteJoinOperator] = P(joinComma | joinCross | joinInnerOp | joinOuterOp)
+
+    def joinOuterOp[_ : P]: P[SqliteJoinOperator] = {
+      P(
+        (icWord("natural") ~ ws).? ~
+        (icWord("left") | icWord("right") | icWord("full")).! ~ ws ~
+        icWord("outer").? ~ ws ~ icWord("join")
+      ).map(joinType =>
+        joinType.toLowerCase() match {
+          case "left" => SqliteJoinLeft()
+          case "right" => SqliteJoinRight()
+          case "full" => SqliteJoinFull()
+        }
+      )
+    }
+
+    def joinInnerOp[_ : P]: P[SqliteJoinOperator] =
+      P(icWord("natural").? ~ ws ~ icWord("inner") ~ ws ~ icWord("join")).map(_ => SqliteJoinInner())
+
+    def joinCross[_ : P]: P[SqliteJoinOperator] =
+      P(icWord("cross") ~ ws ~ icWord("join")).map(_ => SqliteJoinCross())
+
+    def joinComma[_ : P]: P[SqliteJoinOperator] =
+      P(comma).map(_ => SqliteJoinInner(usingCommas = true))
   }
 
   object TableOrSub {

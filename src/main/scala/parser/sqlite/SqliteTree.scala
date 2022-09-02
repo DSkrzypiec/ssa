@@ -29,6 +29,14 @@ case class SqliteJoinConstraint(
   byColumnNames: List[String] = List()
 ) extends SqliteSelectComponent
 
+sealed trait SqliteJoinOperator
+case class SqliteJoinLeft() extends SqliteJoinOperator
+case class SqliteJoinRight() extends SqliteJoinOperator
+case class SqliteJoinFull() extends SqliteJoinOperator
+case class SqliteJoinInner(usingCommas: Boolean = false) extends SqliteJoinOperator
+case class SqliteJoinCross() extends SqliteJoinOperator
+
+
 // EXPR
 sealed trait SqliteLiteral extends SqliteExpr
 case class SqliteIntegerLit(value: Int) extends SqliteLiteral
