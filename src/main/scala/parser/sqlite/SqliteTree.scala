@@ -110,6 +110,8 @@ case object LESS_OR_EQ extends SqliteBinaryOpSign
 case object GREATER_OR_EQ extends SqliteBinaryOpSign
 case object EQUAL extends SqliteBinaryOpSign
 case object NOT_EQUAL extends SqliteBinaryOpSign
+case object AND extends SqliteBinaryOpSign
+case object OR extends SqliteBinaryOpSign
 
 case object UNKNOWN_BINOP extends SqliteBinaryOpSign
 

@@ -7,7 +7,7 @@ import dev.dskrzypiec.parser.sqlite.Identifier.id
 object Expr {
   // TODO: Unary operators!
   // TODO: Parser for parsing Sqlite expression.
-  def expr[_ : P]: P[SqliteExpr] = P(BinaryOp.comp)
+  def expr[_ : P]: P[SqliteExpr] = P(BinaryOp.orOp)
 
   def exprSingle[_ : P]: P[SqliteExpr] = P(FuncCallExpr.funcExpr | Column.columnExpr | Literal.literal | CaseExpr.caseExpr)
   def exprInParen[_ : P]: P[SqliteExpr] = P("(" ~/ expr ~ ")")
@@ -31,7 +31,13 @@ object Expr {
       P(shift ~ ws ~ (StringIn("<", "<=", ">", ">=").! ~ ws ~ shift).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
 
     def comp[_ : P]: P[SqliteExpr] =
-      P(ineq ~ ws ~ (StringIn("=", "<>", "!=" /* TODO: IS NULL etc. */).! ~ ws ~ ineq).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
+      P(ineq ~ ws ~ (StringIn("=", "<>", "!=" /* TODO: IS, IS NOT, BETWEEN, etc. */).! ~ ws ~ ineq).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
+
+   def andOp[_ : P]: P[SqliteExpr] =
+     P(comp ~ ws ~ (icWord("and").! ~ ws ~ comp).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
+
+   def orOp[_ : P]: P[SqliteExpr] =
+     P(andOp ~ ws ~ (icWord("or").! ~ ws ~ andOp).rep).map(e => binaryOpTreeBuilder(e._1, e._2))
 
     def binaryOpTreeBuilder(prev: SqliteExpr, ss: Seq[(String, SqliteExpr)]): SqliteExpr = {
       ss match {
@@ -64,6 +70,8 @@ object Expr {
       case "==" => EQUAL
       case "!=" => NOT_EQUAL
       case "<>" => NOT_EQUAL
+      case c if (c.toLowerCase() == "and") => AND
+      case c if (c.toLowerCase() == "or") => OR
       case _ => UNKNOWN_BINOP
     }
   }
