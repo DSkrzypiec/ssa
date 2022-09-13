@@ -24,6 +24,11 @@ case class SqliteTableName(
   tableAlias: Option[String] = None
 ) extends SqliteSelectComponent
 
+case class SqliteJoinExpr(
+  firstTable: SqliteTableName,
+  otherJoins: Seq[(SqliteJoinOperator, SqliteTableName, SqliteJoinConstraint)]
+) extends SqliteSelectComponent
+
 case class SqliteJoinConstraint(
   joinExpression: Option[SqliteExpr] = None,
   byColumnNames: List[String] = List()

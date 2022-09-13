@@ -171,4 +171,49 @@ class SelectJoinsTests extends UnitSpec {
   "Natural cROSS join" should "not be parsed as valid CROSS JOIN" in {
     parse("Natural cROSS join", Joins.joinOperator(_)) shouldBe a [Parsed.Failure]
   }
+
+  "tableA a INNER JOIN tableB b ON a.X = b.Z" should "be parsed as INNER JOIN of two tables" in {
+    val constrainExpr = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("a"), columnName = "X"),
+      right = SqliteColumnExpr(tableName = Some("b"), columnName = "Z")
+    )
+    val expected = SqliteJoinExpr(
+      firstTable = SqliteTableName(tableName = "tableA", tableAlias = Some("a")),
+      otherJoins = List(
+        (
+          SqliteJoinInner(false),
+          SqliteTableName(tableName = "tableB", tableAlias = Some("b")),
+          SqliteJoinConstraint(Some(constrainExpr))
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, 41)) { parse("tableA a INNER JOIN tableB b ON a.X = b.Z", Joins.joinExpr(_)) }
+  }
+  "tableA a LEFT  join tableB b ON a.X = b.Z anD a.Y > b.A" should "be parsed as LEFT JOIN of two tables" in {
+    val constrainExpr = SqliteBinaryOp(
+      op = AND,
+      left = SqliteBinaryOp(
+        op = EQUAL,
+        left = SqliteColumnExpr(tableName = Some("a"), columnName = "X"),
+        right = SqliteColumnExpr(tableName = Some("b"), columnName = "Z")
+      ),
+      right = SqliteBinaryOp(
+        op = GREATER_THEN,
+        left = SqliteColumnExpr(tableName = Some("a"), columnName = "Y"),
+        right = SqliteColumnExpr(tableName = Some("b"), columnName = "A")
+      )
+    )
+    val expected = SqliteJoinExpr(
+      firstTable = SqliteTableName(tableName = "tableA", tableAlias = Some("a")),
+      otherJoins = List(
+        (
+          SqliteJoinLeft(),
+          SqliteTableName(tableName = "tableB", tableAlias = Some("b")),
+          SqliteJoinConstraint(Some(constrainExpr))
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, 55)) { parse("tableA a LEFT  join tableB b ON a.X = b.Z anD a.Y > b.A", Joins.joinExpr(_)) }
+  }
 }

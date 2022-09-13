@@ -10,6 +10,17 @@ object SelectStmt {
   // def selectCore[_ : P]: P[SqliteSelectComponent] = P()
 
   object Joins {
+    // Parser for JOIN expression. Usually like table -> JOIN op -> table ->
+    // JOIN constraint with possibly many joins repeated.
+    def joinExpr[_ : P]: P[SqliteJoinExpr] = P(
+      TableOrSub.tableOrSubquery ~ ws ~
+      (
+        joinOperator ~ ws ~
+        TableOrSub.tableOrSubquery ~ ws ~
+        joinConstrain
+      ).rep(1)
+    ).map(e => SqliteJoinExpr(firstTable = e._1, otherJoins = e._2))
+
     // Parsing join constrain: either ON [expr] or USING (col1, col2, ...).
     def joinConstrain[_ : P]: P[SqliteJoinConstraint] =
       P(joinExpression | joinByColumns).map(
@@ -53,7 +64,7 @@ object SelectStmt {
 
   object TableOrSub {
     // TODO: the following is not the full definition
-    def tableOrSubquery[_ : P]: P[SqliteSelectComponent] = tableName
+    def tableOrSubquery[_ : P]: P[SqliteTableName] = tableName
 
     def tableName[_ : P]: P[SqliteTableName] =
       P((id.! ~ dot).? ~ id.! ~ ws ~ icWord("as").? ~ ws ~ (id.!).?).map(
