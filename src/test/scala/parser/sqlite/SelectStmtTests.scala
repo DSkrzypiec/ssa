@@ -217,3 +217,110 @@ class SelectJoinsTests extends UnitSpec {
     assertResult(Parsed.Success(expected, 55)) { parse("tableA a LEFT  join tableB b ON a.X = b.Z anD a.Y > b.A", Joins.joinExpr(_)) }
   }
 }
+
+class SelectWhereTests extends UnitSpec {
+  "Where x > 1" should "be parsed as valid WHERE condition" in {
+    val expected = SqliteWhereExpr(
+      condition = SqliteBinaryOp(
+        op = GREATER_THEN,
+        left = SqliteColumnExpr(columnName = "x"),
+        right = SqliteIntegerLit(1)
+      )
+    )
+    assertResult(Parsed.Success(expected, 11)) { parse("Where x > 1", whereExpr(_)) }
+  }
+  "WHERE   1 = 1" should "be parsed as valid WHERE condition" in {
+    val expected = SqliteWhereExpr(
+      condition = SqliteBinaryOp(
+        op = EQUAL,
+        left = SqliteIntegerLit(1),
+        right = SqliteIntegerLit(1)
+      )
+    )
+    assertResult(Parsed.Success(expected, 13)) { parse("WHERE   1 = 1", whereExpr(_)) }
+  }
+}
+
+class SelectGroupByTests extends UnitSpec {
+  "Group By col1" should "be parsed as valid GROUP BY clause" in {
+    val expected = SqliteGroupByExpr(
+      groupingExprs = Seq(SqliteColumnExpr(columnName = "col1"))
+    )
+    assertResult(Parsed.Success(expected, 13)) { parse("Group By col1", groupByExpr(_)) }
+  }
+  "GROUP BY col1 + col2" should "be parsed as valid GROUP BY clause" in {
+    val expected = SqliteGroupByExpr(
+      groupingExprs = Seq(
+        SqliteBinaryOp(
+          op = ADD,
+          left = SqliteColumnExpr(columnName = "col1"),
+          right = SqliteColumnExpr(columnName = "col2")
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, 20)) { parse("GROUP BY col1 + col2", groupByExpr(_)) }
+  }
+  "group by  col1,   col2" should "be parsed as valid GROUP BY clause" in {
+    val expected = SqliteGroupByExpr(
+      groupingExprs = Seq(
+        SqliteColumnExpr(columnName = "col1"),
+        SqliteColumnExpr(columnName = "col2")
+      )
+    )
+    assertResult(Parsed.Success(expected, 22)) { parse("group by  col1,   col2", groupByExpr(_)) }
+  }
+  """group by
+      col1,
+      col2,
+        col1 +  col2""" should "be parsed as valid GROUP BY clause" in {
+    val input = """group by
+      col1,
+      col2,
+        col1 +  col2"""
+    val expected = SqliteGroupByExpr(
+      groupingExprs = Seq(
+        SqliteColumnExpr(columnName = "col1"),
+        SqliteColumnExpr(columnName = "col2"),
+        SqliteBinaryOp(
+          op = ADD,
+          left = SqliteColumnExpr(columnName = "col1"),
+          right = SqliteColumnExpr(columnName = "col2")
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, groupByExpr(_)) }
+  }
+}
+
+class SelectHavingTests extends UnitSpec {
+  "HAVING COUNT(col1) > 1" should "be parsed as valid HAVING condition" in {
+    val expected = SqliteHavingExpr(
+      condition = SqliteBinaryOp(
+        op = GREATER_THEN,
+        left = SqliteFuncCall(
+          func = "COUNT",
+          args = List(SqliteColumnExpr(columnName = "col1"))
+        ),
+        right = SqliteIntegerLit(1)
+      )
+    )
+    assertResult(Parsed.Success(expected, 22)) { parse("HAVING COUNT(col1) > 1", havingExpr(_)) }
+  }
+  "having min(col1) = max(col1)" should "be parsed as valid HAVING condition" in {
+    val expected = SqliteHavingExpr(
+      condition = SqliteBinaryOp(
+        op = EQUAL,
+        left = SqliteFuncCall(
+          func = "min",
+          args = List(SqliteColumnExpr(columnName = "col1"))
+        ),
+        right = SqliteFuncCall(
+          func = "max",
+          args = List(SqliteColumnExpr(columnName = "col1"))
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, 28)) { parse("having min(col1) = max(col1)", havingExpr(_)) }
+  }
+}
+

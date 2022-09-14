@@ -97,4 +97,17 @@ object SelectStmt {
     def resColStar[_ : P]: P[SqliteResultStar] =
       star.map(_ => SqliteResultStar())
   }
+
+  // WHERE expression parser
+  def whereExpr[_ : P]: P[SqliteWhereExpr] = P(icWord("where") ~ ws ~ expr).map(SqliteWhereExpr(_))
+
+  // GROUP BY expression parser
+  def groupByExpr[_ : P]: P[SqliteGroupByExpr] =
+    P(icWord("group") ~ ws ~ icWord("by") ~ (ws ~ expr ~ ws).rep(sep = ",")).map(SqliteGroupByExpr(_))
+
+  // HAVING
+  def havingExpr[_ : P]: P[SqliteHavingExpr] = P(icWord("having") ~ ws ~ expr).map(SqliteHavingExpr(_))
+
+  // WINDOW
+  // TODO..
 }

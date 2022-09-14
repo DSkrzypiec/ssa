@@ -9,6 +9,10 @@ case class SqliteId(value: String) extends SqliteToken
 // SELECT
 sealed trait SqliteSelectComponent extends SqliteToken
 
+case class SqliteSelectCore(
+  // TODO
+) extends SqliteSelectComponent
+
 case class SqliteResultCol(
   colExpr: Option[SqliteExpr] = None,
   colAlias: Option[String] = None,
@@ -41,6 +45,17 @@ case class SqliteJoinFull() extends SqliteJoinOperator
 case class SqliteJoinInner(usingCommas: Boolean = false) extends SqliteJoinOperator
 case class SqliteJoinCross() extends SqliteJoinOperator
 
+case class SqliteWhereExpr(
+  condition: SqliteExpr
+) extends SqliteSelectComponent
+
+case class SqliteGroupByExpr(
+  groupingExprs: Seq[SqliteExpr]
+) extends SqliteSelectComponent
+
+case class SqliteHavingExpr(
+  condition: SqliteExpr
+) extends SqliteSelectComponent
 
 // EXPR
 sealed trait SqliteLiteral extends SqliteExpr
@@ -74,7 +89,7 @@ case class SqliteCaseWhenThen(when: SqliteExpr, then: SqliteExpr) extends Sqlite
 // Function call
 case class SqliteFuncCall(
   func: String, //SqliteFunction,
-  args: List[SqliteExpr],
+  args: List[SqliteExpr] = List(),
   starAsArg: Boolean = false,
   distinctArgs: Boolean = false
 ) extends SqliteExpr
