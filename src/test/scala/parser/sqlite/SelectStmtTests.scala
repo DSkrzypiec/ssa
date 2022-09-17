@@ -324,3 +324,57 @@ class SelectHavingTests extends UnitSpec {
   }
 }
 
+class SelectCoreTests extends UnitSpec {
+  "SELECT a, b FROM tableA" should "be parsed as simple SELECT statement" in {
+    val expected = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "a"))),
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
+        )
+      ),
+      from = SqliteSelectFrom(
+        table = Some(SqliteTableName(tableName = "tableA"))
+      )
+    )
+    assertResult(Parsed.Success(expected, 23)) { parse("SELECT a, b FROM tableA", SelectCore.selectCore(_)) }
+  }
+  "SELECT distinct  a, b FROM tableA" should "be parsed as simple SELECT statement with distinct" in {
+    val expected = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        distinct = true,
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "a"))),
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
+        )
+      ),
+      from = SqliteSelectFrom(
+        table = Some(SqliteTableName(tableName = "tableA"))
+      )
+    )
+    assertResult(Parsed.Success(expected, 33)) { parse("SELECT distinct  a, b FROM tableA", SelectCore.selectCore(_)) }
+  }
+  "Select a, b  from tableA where a > b" should "be parsed as simple SELECT statement with WHERE" in {
+    val expected = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "a"))),
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
+        )
+      ),
+      from = SqliteSelectFrom(
+        table = Some(SqliteTableName(tableName = "tableA"))
+      ),
+      where = Some(
+        SqliteWhereExpr(
+          condition = SqliteBinaryOp(
+            op = GREATER_THEN,
+            left = SqliteColumnExpr(columnName = "a"),
+            right = SqliteColumnExpr(columnName = "b")
+          )
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, 36)) { parse("Select a, b  from tableA where a > b", SelectCore.selectCore(_)) }
+  }
+}

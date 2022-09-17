@@ -10,8 +10,24 @@ case class SqliteId(value: String) extends SqliteToken
 sealed trait SqliteSelectComponent extends SqliteToken
 
 case class SqliteSelectCore(
-  // TODO
+  selectCols: SqliteSelectColumns,
+  from: SqliteSelectFrom,
+  where: Option[SqliteWhereExpr] = None,
+  groupBy: Option[SqliteGroupByExpr] = None,
+  having: Option[SqliteHavingExpr] = None
+  // window: TODO
 ) extends SqliteSelectComponent
+
+case class SqliteSelectColumns(
+  distinct: Boolean = false,
+  all: Boolean = false,
+  cols: Seq[SqliteResultCol]
+) extends SqliteSelectComponent
+
+case class SqliteSelectFrom(
+  table: Option[SqliteTableName] = None,
+  joinExpr: Option[SqliteJoinExpr] = None
+)
 
 case class SqliteResultCol(
   colExpr: Option[SqliteExpr] = None,

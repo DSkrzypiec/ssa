@@ -7,7 +7,32 @@ import dev.dskrzypiec.parser.sqlite.Identifier.id
 
 object SelectStmt {
   // Core part of SELECT statement
-  // def selectCore[_ : P]: P[SqliteSelectComponent] = P()
+  object SelectCore {
+    def selectCore[_ : P]: P[SqliteSelectCore] =
+      P(
+        icWord("select") ~ ws ~
+        selectColumns ~ ws ~
+        selectFrom ~
+        (ws ~ whereExpr ~ ws).? ~
+        (ws ~ groupByExpr ~ ws).? ~
+        (ws ~ havingExpr ~ ws).?
+        ).map(e => SqliteSelectCore(e._1, e._2, e._3, e._4))
+
+    def selectColumns[_ : P]: P[SqliteSelectColumns] =
+      P((icWord("distinct") | icWord("all")).!.? ~ ws ~ ResultCol.resultCols).map(e => e._1 match {
+          case None => SqliteSelectColumns(cols = e._2)
+          case Some(w) if w.toLowerCase() == "distinct" => SqliteSelectColumns(distinct = true, cols = e._2)
+          case Some(w) if w.toLowerCase() == "all" => SqliteSelectColumns(all = true, cols = e._2)
+          case Some(_) => SqliteSelectColumns(cols = e._2) // should not happen
+        })
+
+    def selectFrom[_ : P]: P[SqliteSelectFrom] =
+      P(icWord("from") ~ ws ~ (TableOrSub.tableOrSubquery | Joins.joinExpr)).map(e => e match {
+        case table: SqliteTableName => SqliteSelectFrom(table = Some(table))
+        case joinExpr: SqliteJoinExpr => SqliteSelectFrom(joinExpr = Some(joinExpr))
+        case _ => SqliteSelectFrom()
+      })
+  }
 
   object Joins {
     // Parser for JOIN expression. Usually like table -> JOIN op -> table ->
@@ -74,12 +99,12 @@ object SelectStmt {
 
   object ResultCol {
     // Many result columns (usually in single SELECT)
-    def resultCols[_ : P]: P[Seq[SqliteSelectComponent]] =
+    def resultCols[_ : P]: P[Seq[SqliteResultCol]] =
       P(ws ~ resultCol ~ ws).rep(sep=",")
 
     // Parsing single SELECT result column. It's usually an expression with
     // potential alias after "AS" token. But might be a "*" or table_name.*.
-    def resultCol[_ : P]: P[SqliteSelectComponent] =
+    def resultCol[_ : P]: P[SqliteResultCol] =
       P(resColStar | resTableStar | resExpr).map(e =>
         e match {
           case SqliteResultStar() => SqliteResultCol(isStar = true)
