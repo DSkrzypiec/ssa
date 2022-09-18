@@ -557,3 +557,64 @@ class SelectCoreTests extends UnitSpec {
   }
 }
 
+class SelectSubqueryTests extends UnitSpec {
+  """
+  SELECT
+    x.col1 + x.col2 AS newX
+  FROM
+  (
+    SELECT
+      1 AS col1,
+      2 AS col2
+  ) x
+  """ should "be parsed as simple SELECT statement" in {
+    val input = """SELECT
+        x.col1 + x.col2 AS newX
+      FROM
+      (
+        SELECT
+          1 AS col1,
+          2 AS col2
+      ) x
+    """
+    val cols = SqliteSelectColumns(
+      cols = Seq(
+        SqliteResultCol(
+          colExpr = Some(
+            SqliteBinaryOp(
+              op = ADD,
+              left = SqliteColumnExpr(tableName = Some("x"), columnName = "col1"),
+              right = SqliteColumnExpr(tableName = Some("x"), columnName = "col2"),
+            )
+          ),
+          colAlias = Some("newX")
+        )
+      )
+    )
+    val subQuerySelect = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("col1")),
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(2)), colAlias = Some("col2")),
+        )
+      )
+    )
+    val from = SqliteSelectFrom(
+      tableOrSubquery = Some(
+        SqliteTableOrSubquery(
+          subQuery = Some(
+            SqliteSelectSubquery(
+              subQuery = subQuerySelect,
+              alias = Some("x")
+            )
+          )
+        )
+      )
+    )
+    val expected = SqliteSelectCore(
+      selectCols = cols,
+      from = Some(from),
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
+  }
+}

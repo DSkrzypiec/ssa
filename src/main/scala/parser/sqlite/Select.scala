@@ -92,15 +92,18 @@ object SelectStmt {
   }
 
   object TableOrSub {
-    // TODO: the following is not the full definition
-    def tableOrSubquery[_ : P]: P[SqliteTableOrSubquery] = tableName
+    def tableOrSubquery[_ : P]: P[SqliteTableOrSubquery] = P(subQuery | tableName)
 
     def tableName[_ : P]: P[SqliteTableOrSubquery] =
       P((id.! ~ dot).? ~ id.! ~ ws ~ icWord("as").? ~ ws ~ (id.!).?).map(
         e => SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = e._1, tableName = e._2, tableAlias = e._3)))
       )
 
-    //def subQuery[_ : P]: P[Sqlite
+    def subQuery[_ : P]: P[SqliteTableOrSubquery] =
+      P(
+        openParen ~ ws ~ SelectCore.selectCore ~ ws ~ closeParen ~ ws ~
+        icWord("as").? ~ ws ~ (id.!).?
+      ).map(e => SqliteTableOrSubquery(subQuery = Some(SqliteSelectSubquery(subQuery = e._1, alias = e._2))))
   }
 
   object ResultCol {

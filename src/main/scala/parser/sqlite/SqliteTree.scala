@@ -41,13 +41,18 @@ case class SqliteResultStar() extends SqliteSelectComponent
 
 case class SqliteTableOrSubquery(
   table: Option[SqliteTableName] = None,
-  subQuery: Option[SqliteSelectCore] = None
+  subQuery: Option[SqliteSelectSubquery] = None
 ) extends SqliteSelectComponent
 
 case class SqliteTableName(
   schemaName: Option[String] = None,
   tableName: String,
   tableAlias: Option[String] = None
+) extends SqliteSelectComponent
+
+case class SqliteSelectSubquery(
+  subQuery: SqliteSelectCore,
+  alias: Option[String] = None
 ) extends SqliteSelectComponent
 
 case class SqliteJoinExpr(
