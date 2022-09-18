@@ -50,35 +50,43 @@ class SelectResultColTests extends UnitSpec {
 
 class SelectFromSourcesTests extends UnitSpec {
   "schema.tableName AS t" should "be parsed as valid table name with alias" in {
-    val expected = SqliteTableName(
-      schemaName = Some("schema"),
-      tableName = "tableName",
-      tableAlias = Some("t")
+    val expected = SqliteTableOrSubquery(
+      table = Some(
+        SqliteTableName(
+          schemaName = Some("schema"),
+          tableName = "tableName",
+          tableAlias = Some("t")
+        )
+      )
     )
     assertResult(Parsed.Success(expected, 21)) { parse("schema.tableName AS t", TableOrSub.tableName(_)) }
   }
   "schema.tableName  t" should "be parsed as valid table name with alias but without AS" in {
-    val expected = SqliteTableName(
-      schemaName = Some("schema"),
-      tableName = "tableName",
-      tableAlias = Some("t")
+    val expected = SqliteTableOrSubquery(
+      table = Some(
+        SqliteTableName(
+          schemaName = Some("schema"),
+          tableName = "tableName",
+          tableAlias = Some("t")
+        )
+      )
     )
     assertResult(Parsed.Success(expected, 19)) { parse("schema.tableName  t", TableOrSub.tableName(_)) }
   }
   "schema.tableName" should "be parsed as valid table name without alias" in {
-    val expected = SqliteTableName(schemaName = Some("schema"), tableName = "tableName")
+    val expected = SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = Some("schema"), tableName = "tableName")))
     assertResult(Parsed.Success(expected, 16)) { parse("schema.tableName", TableOrSub.tableName(_)) }
   }
   "tableName" should "be parsed as valid table name without schema and alias" in {
-    val expected = SqliteTableName(tableName = "tableName")
+    val expected = SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableName")))
     assertResult(Parsed.Success(expected, 9)) { parse("tableName", TableOrSub.tableName(_)) }
   }
   "tableName as t1" should "be parsed as valid table name without schema but with alias" in {
-    val expected = SqliteTableName(tableName = "tableName", tableAlias = Some("t1"))
+    val expected = SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableName", tableAlias = Some("t1"))))
     assertResult(Parsed.Success(expected, 15)) { parse("tableName as t1", TableOrSub.tableName(_)) }
   }
   "tableName t1" should "be parsed as valid table name without schema but with alias without as" in {
-    val expected = SqliteTableName(tableName = "tableName", tableAlias = Some("t1"))
+    val expected = SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableName", tableAlias = Some("t1"))))
     assertResult(Parsed.Success(expected, 12)) { parse("tableName t1", TableOrSub.tableName(_)) }
   }
   "schema.* t1" should "not be parsed as valid table name" in {
@@ -179,11 +187,11 @@ class SelectJoinsTests extends UnitSpec {
       right = SqliteColumnExpr(tableName = Some("b"), columnName = "Z")
     )
     val expected = SqliteJoinExpr(
-      firstTable = SqliteTableName(tableName = "tableA", tableAlias = Some("a")),
+      firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableA", tableAlias = Some("a")))),
       otherJoins = List(
         (
           SqliteJoinInner(false),
-          SqliteTableName(tableName = "tableB", tableAlias = Some("b")),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableB", tableAlias = Some("b")))),
           SqliteJoinConstraint(Some(constrainExpr))
         )
       )
@@ -205,11 +213,11 @@ class SelectJoinsTests extends UnitSpec {
       )
     )
     val expected = SqliteJoinExpr(
-      firstTable = SqliteTableName(tableName = "tableA", tableAlias = Some("a")),
+      firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableA", tableAlias = Some("a")))),
       otherJoins = List(
         (
           SqliteJoinLeft(),
-          SqliteTableName(tableName = "tableB", tableAlias = Some("b")),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableB", tableAlias = Some("b")))),
           SqliteJoinConstraint(Some(constrainExpr))
         )
       )
@@ -352,7 +360,7 @@ class SelectSetOpTests extends UnitSpec {
       selectCols = SqliteSelectColumns(
         cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col1"))))
       ),
-      from = Some(SqliteSelectFrom(table = Some(SqliteTableName(tableName = tableName))))
+      from = Some(SqliteSelectFrom(tableOrSubquery = Some(SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = tableName))))))
     )
     val expected = SqliteSelectCore(
       selectCols = sel("table1").selectCols,
@@ -383,7 +391,10 @@ class SelectCoreTests extends UnitSpec {
         )
       ),
       from = Some(SqliteSelectFrom(
-        table = Some(SqliteTableName(tableName = "tableA"))
+        tableOrSubquery = Some(
+          SqliteTableOrSubquery(
+            table = Some(SqliteTableName(tableName = "tableA")))
+          )
       ))
     )
     assertResult(Parsed.Success(expected, 23)) { parse("SELECT a, b FROM tableA", SelectCore.selectCore(_)) }
@@ -398,7 +409,11 @@ class SelectCoreTests extends UnitSpec {
         )
       ),
       from = Some(SqliteSelectFrom(
-        table = Some(SqliteTableName(tableName = "tableA"))
+        tableOrSubquery = Some(
+          SqliteTableOrSubquery(
+            table = Some(SqliteTableName(tableName = "tableA"))
+          )
+        )
       ))
     )
     assertResult(Parsed.Success(expected, 33)) { parse("SELECT distinct  a, b FROM tableA", SelectCore.selectCore(_)) }
@@ -412,7 +427,11 @@ class SelectCoreTests extends UnitSpec {
         )
       ),
       from = Some(SqliteSelectFrom(
-        table = Some(SqliteTableName(tableName = "tableA"))
+        tableOrSubquery = Some(
+          SqliteTableOrSubquery(
+            table = Some(SqliteTableName(tableName = "tableA"))
+          )
+        )
       )),
       where = Some(
         SqliteWhereExpr(
@@ -485,16 +504,24 @@ class SelectCoreTests extends UnitSpec {
         )
       )
     val joins = SqliteJoinExpr(
-      firstTable = SqliteTableName(
-        tableName = "tableA",
-        tableAlias = Some("a")
+      firstTable = SqliteTableOrSubquery(
+        table = Some(
+          SqliteTableName(
+            tableName = "tableA",
+            tableAlias = Some("a")
+          )
+        )
       ),
       otherJoins = Seq(
         (
           SqliteJoinInner(),
-          SqliteTableName(
-            tableName = "tableB",
-            tableAlias = Some("b")
+          SqliteTableOrSubquery(
+            table = Some(
+              SqliteTableName(
+                tableName = "tableB",
+                tableAlias = Some("b")
+              )
+            )
           ),
           SqliteJoinConstraint(
             joinExpression = Some(

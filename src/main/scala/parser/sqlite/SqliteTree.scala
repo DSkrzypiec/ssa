@@ -26,7 +26,7 @@ case class SqliteSelectColumns(
 ) extends SqliteSelectComponent
 
 case class SqliteSelectFrom(
-  table: Option[SqliteTableName] = None,
+  tableOrSubquery: Option[SqliteTableOrSubquery] = None,
   joinExpr: Option[SqliteJoinExpr] = None
 )
 
@@ -39,6 +39,11 @@ case class SqliteResultCol(
 
 case class SqliteResultStar() extends SqliteSelectComponent
 
+case class SqliteTableOrSubquery(
+  table: Option[SqliteTableName] = None,
+  subQuery: Option[SqliteSelectCore] = None
+) extends SqliteSelectComponent
+
 case class SqliteTableName(
   schemaName: Option[String] = None,
   tableName: String,
@@ -46,8 +51,8 @@ case class SqliteTableName(
 ) extends SqliteSelectComponent
 
 case class SqliteJoinExpr(
-  firstTable: SqliteTableName,
-  otherJoins: Seq[(SqliteJoinOperator, SqliteTableName, SqliteJoinConstraint)]
+  firstTable: SqliteTableOrSubquery,
+  otherJoins: Seq[(SqliteJoinOperator, SqliteTableOrSubquery, SqliteJoinConstraint)]
 ) extends SqliteSelectComponent
 
 case class SqliteJoinConstraint(

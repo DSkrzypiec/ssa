@@ -29,7 +29,7 @@ object SelectStmt {
 
     def selectFrom[_ : P]: P[SqliteSelectFrom] =
       P(icWord("from") ~ ws ~ (Joins.joinExpr | TableOrSub.tableOrSubquery)).map(e => e match {
-        case table: SqliteTableName => SqliteSelectFrom(table = Some(table))
+        case table: SqliteTableOrSubquery => SqliteSelectFrom(tableOrSubquery = Some(table))
         case joinExpr: SqliteJoinExpr => SqliteSelectFrom(joinExpr = Some(joinExpr))
         case _ => SqliteSelectFrom()
       })
@@ -93,12 +93,14 @@ object SelectStmt {
 
   object TableOrSub {
     // TODO: the following is not the full definition
-    def tableOrSubquery[_ : P]: P[SqliteTableName] = tableName
+    def tableOrSubquery[_ : P]: P[SqliteTableOrSubquery] = tableName
 
-    def tableName[_ : P]: P[SqliteTableName] =
+    def tableName[_ : P]: P[SqliteTableOrSubquery] =
       P((id.! ~ dot).? ~ id.! ~ ws ~ icWord("as").? ~ ws ~ (id.!).?).map(
-        e => SqliteTableName(schemaName = e._1, tableName = e._2, tableAlias = e._3)
+        e => SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = e._1, tableName = e._2, tableAlias = e._3)))
       )
+
+    //def subQuery[_ : P]: P[Sqlite
   }
 
   object ResultCol {
