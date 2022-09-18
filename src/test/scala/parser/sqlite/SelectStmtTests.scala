@@ -324,6 +324,45 @@ class SelectHavingTests extends UnitSpec {
   }
 }
 
+class SelectSetOpTests extends UnitSpec {
+  "SELECT 1 AS A UNION ALL SELECT 1 AS A" should "be parsed as simple SELECT statement" in {
+    val sel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
+        )
+      ),
+    )
+    val expected = SqliteSelectCore(
+      selectCols = sel.selectCols,
+      setOp = Some(SqliteSetExpr(SqliteUnionAll(), sel))
+    )
+    assertResult(Parsed.Success(expected, 37)) { parse("SELECT 1 AS A UNION ALL SELECT 1 AS A", SelectCore.selectCore(_)) }
+  }
+  """
+    select col1 from table1
+    except
+    select col1 from table2
+  """ should "be parsed as simple SELECT statement with EXCEPT" in {
+    val input = """select col1 from table1
+      except
+      select col1 from table2
+    """
+    def sel(tableName: String) = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col1"))))
+      ),
+      from = Some(SqliteSelectFrom(table = Some(SqliteTableName(tableName = tableName))))
+    )
+    val expected = SqliteSelectCore(
+      selectCols = sel("table1").selectCols,
+      from = sel("table1").from,
+      setOp = Some(SqliteSetExpr(SqliteExcept(), sel("table2")))
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
+  }
+}
+
 class SelectCoreTests extends UnitSpec {
   "SELECT 1 AS A" should "be parsed as simple SELECT statement" in {
     val expected = SqliteSelectCore(
@@ -489,18 +528,5 @@ class SelectCoreTests extends UnitSpec {
     )
     assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
   }
-  "SELECT 1 AS A UNION ALL SELECT 1 AS A" should "be parsed as simple SELECT statement" in {
-    val sel = SqliteSelectCore(
-      selectCols = SqliteSelectColumns(
-        cols = Seq(
-          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
-        )
-      ),
-    )
-    val expected = SqliteSelectCore(
-      selectCols = sel.selectCols,
-      setOp = Some(SqliteSetExpr(SqliteUnionAll(), sel))
-    )
-    assertResult(Parsed.Success(expected, 37)) { parse("SELECT 1 AS A UNION ALL SELECT 1 AS A", SelectCore.selectCore(_)) }
-  }
 }
+
