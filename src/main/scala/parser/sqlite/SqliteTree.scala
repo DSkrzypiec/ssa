@@ -11,11 +11,12 @@ sealed trait SqliteSelectComponent extends SqliteToken
 
 case class SqliteSelectCore(
   selectCols: SqliteSelectColumns,
-  from: SqliteSelectFrom,
+  from: Option[SqliteSelectFrom] = None,
   where: Option[SqliteWhereExpr] = None,
   groupBy: Option[SqliteGroupByExpr] = None,
-  having: Option[SqliteHavingExpr] = None
+  having: Option[SqliteHavingExpr] = None,
   // window: TODO
+  setOp: Option[SqliteSetExpr] = None,
 ) extends SqliteSelectComponent
 
 case class SqliteSelectColumns(
@@ -72,6 +73,17 @@ case class SqliteGroupByExpr(
 case class SqliteHavingExpr(
   condition: SqliteExpr
 ) extends SqliteSelectComponent
+
+case class SqliteSetExpr(
+  setOp: SqliteSetOperator,
+  anotherSelect: SqliteSelectCore
+) extends SqliteSelectComponent
+
+sealed trait SqliteSetOperator
+case class SqliteUnion() extends SqliteSetOperator
+case class SqliteUnionAll() extends SqliteSetOperator
+case class SqliteIntersect() extends SqliteSetOperator
+case class SqliteExcept() extends SqliteSetOperator
 
 // EXPR
 sealed trait SqliteLiteral extends SqliteExpr

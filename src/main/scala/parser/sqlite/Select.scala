@@ -11,12 +11,13 @@ object SelectStmt {
     def selectCore[_ : P]: P[SqliteSelectCore] =
       P(
         icWord("select") ~ ws ~
-        selectColumns ~ ws ~
-        selectFrom ~
+        selectColumns ~
+        (ws ~ selectFrom ~ ws).? ~
         (ws ~ whereExpr ~ ws).? ~
         (ws ~ groupByExpr ~ ws).? ~
-        (ws ~ havingExpr ~ ws).?
-        ).map(e => SqliteSelectCore(e._1, e._2, e._3, e._4))
+        (ws ~ havingExpr ~ ws).? ~
+        (ws ~ selectSetOp ~ ws).?
+        ).map(e => SqliteSelectCore(e._1, e._2, e._3, e._4, e._5, e._6))
 
     def selectColumns[_ : P]: P[SqliteSelectColumns] =
       P((icWord("distinct") | icWord("all")).!.? ~ ws ~ ResultCol.resultCols).map(e => e._1 match {
@@ -27,11 +28,14 @@ object SelectStmt {
         })
 
     def selectFrom[_ : P]: P[SqliteSelectFrom] =
-      P(icWord("from") ~ ws ~ (TableOrSub.tableOrSubquery | Joins.joinExpr)).map(e => e match {
+      P(icWord("from") ~ ws ~ (Joins.joinExpr | TableOrSub.tableOrSubquery)).map(e => e match {
         case table: SqliteTableName => SqliteSelectFrom(table = Some(table))
         case joinExpr: SqliteJoinExpr => SqliteSelectFrom(joinExpr = Some(joinExpr))
         case _ => SqliteSelectFrom()
       })
+
+    def selectSetOp[_ : P]: P[SqliteSetExpr] =
+      P(SetOp.setOperator ~ ws ~ selectCore).map(e => SqliteSetExpr(e._1, e._2))
   }
 
   object Joins {
@@ -135,4 +139,20 @@ object SelectStmt {
 
   // WINDOW
   // TODO..
+
+  object SetOp {
+    def setOperator[_ : P]: P[SqliteSetOperator] = P(unionAll | union | except | intersect)
+
+    def unionAll[_ : P]: P[SqliteUnionAll] =
+      P(icWord("union") ~ ws ~ icWord("all")).map(_ => SqliteUnionAll())
+
+    def union[_ : P]: P[SqliteUnion] =
+      P(icWord("union")).map(_ => SqliteUnion())
+
+    def intersect[_ : P]: P[SqliteIntersect] =
+      P(icWord("intersect")).map(_ => SqliteIntersect())
+
+    def except[_ : P]: P[SqliteExcept] =
+      P(icWord("except")).map(_ => SqliteExcept())
+  }
 }

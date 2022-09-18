@@ -325,6 +325,16 @@ class SelectHavingTests extends UnitSpec {
 }
 
 class SelectCoreTests extends UnitSpec {
+  "SELECT 1 AS A" should "be parsed as simple SELECT statement" in {
+    val expected = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
+        )
+      ),
+    )
+    assertResult(Parsed.Success(expected, 13)) { parse("SELECT 1 AS A", SelectCore.selectCore(_)) }
+  }
   "SELECT a, b FROM tableA" should "be parsed as simple SELECT statement" in {
     val expected = SqliteSelectCore(
       selectCols = SqliteSelectColumns(
@@ -333,9 +343,9 @@ class SelectCoreTests extends UnitSpec {
           SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
         )
       ),
-      from = SqliteSelectFrom(
+      from = Some(SqliteSelectFrom(
         table = Some(SqliteTableName(tableName = "tableA"))
-      )
+      ))
     )
     assertResult(Parsed.Success(expected, 23)) { parse("SELECT a, b FROM tableA", SelectCore.selectCore(_)) }
   }
@@ -348,9 +358,9 @@ class SelectCoreTests extends UnitSpec {
           SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
         )
       ),
-      from = SqliteSelectFrom(
+      from = Some(SqliteSelectFrom(
         table = Some(SqliteTableName(tableName = "tableA"))
-      )
+      ))
     )
     assertResult(Parsed.Success(expected, 33)) { parse("SELECT distinct  a, b FROM tableA", SelectCore.selectCore(_)) }
   }
@@ -362,9 +372,9 @@ class SelectCoreTests extends UnitSpec {
           SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
         )
       ),
-      from = SqliteSelectFrom(
+      from = Some(SqliteSelectFrom(
         table = Some(SqliteTableName(tableName = "tableA"))
-      ),
+      )),
       where = Some(
         SqliteWhereExpr(
           condition = SqliteBinaryOp(
@@ -376,5 +386,121 @@ class SelectCoreTests extends UnitSpec {
       )
     )
     assertResult(Parsed.Success(expected, 36)) { parse("Select a, b  from tableA where a > b", SelectCore.selectCore(_)) }
+  }
+  """
+    SELECT
+      a.a,
+      b.b,
+      SUM(a.a + b.b * 10) AS C
+    FROM
+      tableA a
+    INNER JOIN
+      tableB b ON a.ID = b.ID
+    WHERE
+      a.a > a.b
+    GROUP BY
+      a.a,
+      b.b
+    HAVING
+      COUNT(a.c) > 1
+  """ should "be parsed as full SELECT core statement" in {
+    val input = """SELECT
+      a.a,
+      b.b,
+      SUM(a.a + b.b * 10) AS C
+    FROM
+      tableA a
+    INNER JOIN
+      tableB b ON a.ID = b.ID
+    WHERE
+      a.a > b.b
+    GROUP BY
+      a.a,
+      b.b
+    HAVING
+      COUNT(a.c) > 1 """
+    val a = SqliteColumnExpr(tableName = Some("a"), columnName = "a")
+    val b = SqliteColumnExpr(tableName = Some("b"), columnName = "b")
+    val aResCol = SqliteResultCol(colExpr = Some(a))
+    val bResCol = SqliteResultCol(colExpr = Some(b))
+    val sumFunc = SqliteFuncCall(
+      func = "SUM",
+      args = List(
+        SqliteBinaryOp(
+          op = ADD,
+          left = a,
+          right = SqliteBinaryOp(
+            op = MUL,
+            left = b,
+            right = SqliteIntegerLit(10)
+          )
+        )
+      )
+    )
+    val cols = SqliteSelectColumns(
+        cols = Seq(aResCol, bResCol,
+          SqliteResultCol(
+            colExpr = Some(sumFunc),
+            colAlias = Some("C")
+          )
+        )
+      )
+    val joins = SqliteJoinExpr(
+      firstTable = SqliteTableName(
+        tableName = "tableA",
+        tableAlias = Some("a")
+      ),
+      otherJoins = Seq(
+        (
+          SqliteJoinInner(),
+          SqliteTableName(
+            tableName = "tableB",
+            tableAlias = Some("b")
+          ),
+          SqliteJoinConstraint(
+            joinExpression = Some(
+              SqliteBinaryOp(
+                op = EQUAL,
+                left = SqliteColumnExpr(tableName = Some("a"), columnName = "ID"),
+                right = SqliteColumnExpr(tableName = Some("b"), columnName = "ID"),
+              )
+            )
+          )
+        )
+      )
+    )
+    val having = SqliteHavingExpr(
+      condition = SqliteBinaryOp(
+        op = GREATER_THEN,
+        left = SqliteFuncCall(
+          func = "COUNT",
+          args = List(SqliteColumnExpr(tableName = Some("a"), columnName = "c"))
+        ),
+        right = SqliteIntegerLit(1)
+      )
+    )
+
+    val expected = SqliteSelectCore(
+      selectCols = cols,
+      from = Some(SqliteSelectFrom(joinExpr = Some(joins))),
+      where = Some(SqliteWhereExpr(condition = SqliteBinaryOp(op = GREATER_THEN, left = a, right = b))),
+      groupBy = Some(SqliteGroupByExpr(Seq(a, b))),
+      having = Some(having)
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
+  }
+  "SELECT 1 AS A UNION ALL SELECT 1 AS A" should "be parsed as simple SELECT statement" in {
+    val sel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
+        )
+      ),
+    )
+    val expected = SqliteSelectCore(
+      selectCols = sel.selectCols,
+      setOp = Some(SqliteSetExpr(SqliteUnionAll(), sel))
+    )
+    assertResult(Parsed.Success(expected, 37)) { parse("SELECT 1 AS A UNION ALL SELECT 1 AS A", SelectCore.selectCore(_)) }
   }
 }
