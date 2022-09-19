@@ -369,6 +369,41 @@ class SelectSetOpTests extends UnitSpec {
     )
     assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
   }
+  """
+    select col1 from table1
+    except
+    select col1 from table2
+    union all
+    select col1 from table3
+  """ should "be parsed as simple SELECT statement with EXCEPT and UNION ALL" in {
+    val input = """select col1 from table1
+      except
+      select col1 from table2
+      union all
+      select col1 from table3
+    """
+    val sel3 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col1"))))
+      ),
+      from = Some(SqliteSelectFrom(tableOrSubquery = Some(SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "table3"))))))
+    )
+    val sel2 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col1"))))
+      ),
+      from = Some(SqliteSelectFrom(tableOrSubquery = Some(SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "table2")))))),
+      setOp = Some(SqliteSetExpr(SqliteUnionAll(), sel3))
+    )
+    val expected = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col1"))))
+      ),
+      from = Some(SqliteSelectFrom(tableOrSubquery = Some(SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "table1")))))),
+      setOp = Some(SqliteSetExpr(SqliteExcept(), sel2))
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
+  }
 }
 
 class SelectCoreTests extends UnitSpec {
@@ -616,5 +651,57 @@ class SelectSubqueryTests extends UnitSpec {
       from = Some(from),
     )
     assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
+  }
+}
+
+class SelectSingleCteTests extends UnitSpec {
+  "tmp1 AS (SELECT 1 AS A)" should "be parsed as simple single CTE" in {
+    val input = "tmp1 AS (SELECT 1 AS A)"
+    val sel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
+        )
+      )
+    )
+    val expected = SqliteCommonTableExpr(cteName = "tmp1", cteBody = sel)
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, CTE.singleCTE(_)) }
+  }
+  "tmp1 (A)  AS (SELECT 1 AS A)" should "be parsed as simple single CTE" in {
+    val input = "tmp1 (A)  AS (SELECT 1 AS A)"
+    val sel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
+        )
+      )
+    )
+    val expected = SqliteCommonTableExpr(cteName = "tmp1", cteColNames = Some(Seq("A")), cteBody = sel)
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, CTE.singleCTE(_)) }
+  }
+  "tmp1 (A, colB)  AS (SELECT 1 AS A, 2 colB)" should "be parsed as simple single CTE" in {
+    val input = "tmp1 (A, colB)  AS (SELECT 1 AS A, 2 colB)"
+    val sel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A")),
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(2)), colAlias = Some("colB"))
+        )
+      )
+    )
+    val expected = SqliteCommonTableExpr(cteName = "tmp1", cteColNames = Some(Seq("A", "colB")), cteBody = sel)
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, CTE.singleCTE(_)) }
+  }
+  "tmp1 AS  materialized (SELECT 1 AS A)" should "be parsed as simple single CTE" in {
+    val input = "tmp1 AS  materialized (SELECT 1 AS A)"
+    val sel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
+        )
+      )
+    )
+    val expected = SqliteCommonTableExpr(cteName = "tmp1", isMaterialized = true, cteBody = sel)
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, CTE.singleCTE(_)) }
   }
 }

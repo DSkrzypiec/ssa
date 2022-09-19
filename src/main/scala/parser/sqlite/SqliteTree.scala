@@ -9,6 +9,13 @@ case class SqliteId(value: String) extends SqliteToken
 // SELECT
 sealed trait SqliteSelectComponent extends SqliteToken
 
+case class SqliteCommonTableExpr(
+  cteName: String,
+  cteColNames: Option[Seq[String]] = None,
+  isMaterialized: Boolean = false,
+  cteBody: SqliteSelectCore
+) extends SqliteSelectComponent
+
 case class SqliteSelectCore(
   selectCols: SqliteSelectColumns,
   from: Option[SqliteSelectFrom] = None,

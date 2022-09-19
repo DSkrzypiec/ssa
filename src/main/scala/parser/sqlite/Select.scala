@@ -6,6 +6,40 @@ import dev.dskrzypiec.parser.sqlite.Expr.expr
 import dev.dskrzypiec.parser.sqlite.Identifier.id
 
 object SelectStmt {
+  object CTE {
+    def singleCTE[_ : P]: P[SqliteCommonTableExpr] =
+      P(
+        id.! ~ ws.? ~
+        (openParen ~ (ws.? ~ id.! ~ ws.?).rep(sep=",") ~ ws.? ~ closeParen).? ~ ws ~
+        icWord("as") ~ ws ~
+        (
+          (icWord("not").! ~ ws ~ icWord("materialized")) |
+          (icWord("materialized").!)
+        ).? ~ ws ~
+        openParen ~ ws ~ SelectCore.selectCore ~ ws ~ closeParen
+      ).map(e =>
+        e._3 match {
+          case None => SqliteCommonTableExpr(
+            cteName = e._1,
+            cteColNames = e._2,
+            cteBody = e._4
+          )
+          case Some(str) if str.toLowerCase() == "materialized" => SqliteCommonTableExpr(
+              cteName = e._1,
+              cteColNames = e._2,
+              isMaterialized = true,
+              cteBody = e._4
+            )
+          case _ => SqliteCommonTableExpr(
+              cteName = e._1,
+              cteColNames = e._2,
+              isMaterialized = false,
+              cteBody = e._4
+            )
+        }
+      )
+  }
+
   // Core part of SELECT statement
   object SelectCore {
     def selectCore[_ : P]: P[SqliteSelectCore] =
