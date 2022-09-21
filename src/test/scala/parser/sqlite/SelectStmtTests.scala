@@ -654,6 +654,49 @@ class SelectSubqueryTests extends UnitSpec {
   }
 }
 
+class SelectOrderingTests extends UnitSpec {
+  "x ASC" should "be parsed as simple ordering term" in {
+    val input = "x ASC"
+    val expected = SqliteOrderingTerm(expr = SqliteColumnExpr(columnName = "x"))
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderingTerm(_)) }
+  }
+  "x  desc" should "be parsed as simple ordering term" in {
+    val input = "x  desc"
+    val expected = SqliteOrderingTerm(expr = SqliteColumnExpr(columnName = "x"), ascending = false)
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderingTerm(_)) }
+  }
+  "x  COLLATE utf8" should "be parsed as simple ordering term" in {
+    val input = "x  COLLATE utf8"
+    val expected = SqliteOrderingTerm(expr = SqliteColumnExpr(columnName = "x"), collationName = Some("utf8"))
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderingTerm(_)) }
+  }
+  "x DESC NULLS first" should "be parsed as simple ordering term" in {
+    val input = "x DESC NULLS first"
+    val expected = SqliteOrderingTerm(expr = SqliteColumnExpr(columnName = "x"), ascending = false, nullsLast = false)
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderingTerm(_)) }
+  }
+  "x collate UTF8  DESC NULLS last" should "be parsed as simple ordering term" in {
+    val input = "x collate UTF8  DESC NULLS last"
+    val expected = SqliteOrderingTerm(
+      expr = SqliteColumnExpr(columnName = "x"),
+      collationName = Some("UTF8"),
+      ascending = false,
+      nullsLast = true
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderingTerm(_)) }
+  }
+  "ORDER BY x ASC, y DESC" should "be parsed as ORDER BY expr" in {
+    val input = "ORDER BY x ASC, y DESC"
+    val expected = SqliteOrderByExpr(
+      orderingTerms = Seq(
+        SqliteOrderingTerm(SqliteColumnExpr(columnName = "x"), ascending = true),
+        SqliteOrderingTerm(SqliteColumnExpr(columnName = "y"), ascending = false)
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderByExpr(_)) }
+  }
+}
+
 class SelectSingleCteTests extends UnitSpec {
   "tmp1 AS (SELECT 1 AS A)" should "be parsed as simple single CTE" in {
     val input = "tmp1 AS (SELECT 1 AS A)"

@@ -6,6 +6,12 @@ import dev.dskrzypiec.parser.sqlite.Expr.expr
 import dev.dskrzypiec.parser.sqlite.Identifier.id
 
 object SelectStmt {
+  object Select {
+    //def select[_ : P]: P[SqliteSelect] = { }
+
+    //def manyCtes[_ : P]
+  }
+
   object CTE {
     def singleCTE[_ : P]: P[SqliteCommonTableExpr] =
       P(
@@ -40,7 +46,6 @@ object SelectStmt {
       )
   }
 
-  // Core part of SELECT statement
   object SelectCore {
     def selectCore[_ : P]: P[SqliteSelectCore] =
       P(
@@ -193,5 +198,38 @@ object SelectStmt {
 
     def except[_ : P]: P[SqliteExcept] =
       P(icWord("except")).map(_ => SqliteExcept())
+  }
+
+  object OrderBy {
+    def orderByExpr[_ : P]: P[SqliteOrderByExpr] = {
+      P(
+        icWord("order") ~ ws ~ icWord("by") ~
+        (ws ~ orderingTerm ~ ws).rep(sep=",")
+      ).map(e => SqliteOrderByExpr(e))
+    }
+
+    def orderingTerm[_ : P]: P[SqliteOrderingTerm] = {
+      P(
+        expr ~ ws ~
+        (icWord("collate") ~ ws ~ id.!).? ~ ws ~
+        (icWord("asc").! | icWord("desc").!).? ~ ws ~
+        (
+          (icWord("nulls") ~ ws ~ icWord("first").!) |
+          (icWord("nulls") ~ ws ~ icWord("last").!)
+        ).?
+      ).map(e => {
+        val isAsc = e._3 match {
+          case None => true
+          case Some(s) if s.toLowerCase() == "asc" => true
+          case Some(s) if s.toLowerCase() == "desc" => false
+          case _ => true
+        }
+        val nullsLast = e._4 match {
+          case None => true
+          case Some(s) => s.toLowerCase() == "last"
+        }
+        SqliteOrderingTerm(e._1, e._2, isAsc, nullsLast)
+      })
+    }
   }
 }

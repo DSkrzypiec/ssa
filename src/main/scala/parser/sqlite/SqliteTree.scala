@@ -9,6 +9,11 @@ case class SqliteId(value: String) extends SqliteToken
 // SELECT
 sealed trait SqliteSelectComponent extends SqliteToken
 
+case class SqliteSelect(
+  ctes: Option[Seq[SqliteCommonTableExpr]] = None,
+  mainSelect: SqliteSelectCore,
+) extends SqliteToken
+
 case class SqliteCommonTableExpr(
   cteName: String,
   cteColNames: Option[Seq[String]] = None,
@@ -89,6 +94,17 @@ case class SqliteGroupByExpr(
 
 case class SqliteHavingExpr(
   condition: SqliteExpr
+) extends SqliteSelectComponent
+
+case class SqliteOrderByExpr(
+  orderingTerms: Seq[SqliteOrderingTerm]
+) extends SqliteSelectComponent
+
+case class SqliteOrderingTerm(
+  expr: SqliteExpr,
+  collationName: Option[String] = None,
+  ascending: Boolean = true,
+  nullsLast: Boolean = true,
 ) extends SqliteSelectComponent
 
 case class SqliteSetExpr(
