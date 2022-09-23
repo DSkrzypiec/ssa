@@ -695,6 +695,27 @@ class SelectOrderingTests extends UnitSpec {
     )
     assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderByExpr(_)) }
   }
+  """
+  Order   By
+    col1 COLLATE NOCASE desc,
+    col2 nulls last,
+    col3  ASC
+  """ should "be parsed as ORDER BY expr" in {
+    val input =
+    """Order   By
+      col1 COLLATE NOCASE desc,
+      col2 nulls first,
+      col3  ASC
+    """
+    val expected = SqliteOrderByExpr(
+      orderingTerms = Seq(
+        SqliteOrderingTerm(SqliteColumnExpr(columnName = "col1"), collationName = Some("NOCASE"), ascending = false),
+        SqliteOrderingTerm(SqliteColumnExpr(columnName = "col2"), nullsLast = false),
+        SqliteOrderingTerm(SqliteColumnExpr(columnName = "col3"), ascending = true),
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, OrderBy.orderByExpr(_)) }
+  }
 }
 
 class SelectSingleCteTests extends UnitSpec {
