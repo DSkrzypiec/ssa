@@ -718,6 +718,49 @@ class SelectOrderingTests extends UnitSpec {
   }
 }
 
+class SelectLimitTests extends UnitSpec {
+  "LIMIT 10" should "be parsed as limit expression" in {
+    val input = "LIMIT 10"
+    val expected = SqliteLimitExpr(limitExpr = SqliteIntegerLit(10))
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Limit.limitExpr(_)) }
+  }
+  "LIMIT 10 + 20" should "be parsed as limit expression" in {
+    val input = "LIMIT 10 + 20"
+    val expected = SqliteLimitExpr(
+      limitExpr = SqliteBinaryOp(
+        op = ADD,
+        left = SqliteIntegerLit(10),
+        right = SqliteIntegerLit(20),
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Limit.limitExpr(_)) }
+  }
+  "LIMIT 10 offset 10" should "be parsed as limit expression" in {
+    val input = "LIMIT 10 offset 10"
+    val expected = SqliteLimitExpr(
+      limitExpr = SqliteIntegerLit(10),
+      offsetExpr = Some(SqliteIntegerLit(10)),
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Limit.limitExpr(_)) }
+  }
+  "LIMIT 10, 10" should "be parsed as limit expression" in {
+    val input = "LIMIT 10, 10"
+    val expected = SqliteLimitExpr(
+      limitExpr = SqliteIntegerLit(10),
+      offsetExpr = Some(SqliteIntegerLit(10)),
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Limit.limitExpr(_)) }
+  }
+  "limit   10 , 10" should "be parsed as limit expression" in {
+    val input = "limit   10 , 10"
+    val expected = SqliteLimitExpr(
+      limitExpr = SqliteIntegerLit(10),
+      offsetExpr = Some(SqliteIntegerLit(10)),
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Limit.limitExpr(_)) }
+  }
+}
+
 class SelectSingleCteTests extends UnitSpec {
   "tmp1 AS (SELECT 1 AS A)" should "be parsed as simple single CTE" in {
     val input = "tmp1 AS (SELECT 1 AS A)"

@@ -11,7 +11,9 @@ sealed trait SqliteSelectComponent extends SqliteToken
 
 case class SqliteSelect(
   ctes: Option[Seq[SqliteCommonTableExpr]] = None,
+  ctesRecursive: Boolean = false,
   mainSelect: SqliteSelectCore,
+  orderBy: Option[SqliteOrderByExpr] = None,
 ) extends SqliteToken
 
 case class SqliteCommonTableExpr(
@@ -107,6 +109,11 @@ case class SqliteOrderingTerm(
   nullsLast: Boolean = true,
 ) extends SqliteSelectComponent
 
+case class SqliteLimitExpr(
+  limitExpr: SqliteExpr,
+  offsetExpr: Option[SqliteExpr] = None,
+) extends SqliteSelectComponent
+
 case class SqliteSetExpr(
   setOp: SqliteSetOperator,
   anotherSelect: SqliteSelectCore
@@ -168,9 +175,7 @@ case class SqliteBinaryOp(
   op: SqliteBinaryOpSign,
   left: SqliteExpr,
   right: SqliteExpr,
-
 ) extends SqliteBinaryOpExpr
-
 
 sealed trait SqliteBinaryOpSign
 case object ADD extends SqliteBinaryOpSign
@@ -193,12 +198,5 @@ case object EQUAL extends SqliteBinaryOpSign
 case object NOT_EQUAL extends SqliteBinaryOpSign
 case object AND extends SqliteBinaryOpSign
 case object OR extends SqliteBinaryOpSign
-
 case object UNKNOWN_BINOP extends SqliteBinaryOpSign
-
-
-// Keywords
-sealed trait SqliteKeyword extends SqliteToken
-case object SELECT extends SqliteKeyword
-case object CURRENT extends SqliteKeyword
 

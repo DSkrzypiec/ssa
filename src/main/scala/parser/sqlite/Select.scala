@@ -9,7 +9,14 @@ object SelectStmt {
   object Select {
     //def select[_ : P]: P[SqliteSelect] = { }
 
-    //def manyCtes[_ : P]
+    def manyCtes[_ : P]: P[(Boolean, Seq[SqliteCommonTableExpr])] =
+      P(
+        icWord("with") ~ ws ~ icWord("recursive").!.? ~ ws ~
+        (ws ~ CTE.singleCTE ~ ws).rep(sep = ",")
+      ).map(e => e._1 match {
+        case None => (false, e._2)
+        case Some(_) => (true, e._2)
+      })
   }
 
   object CTE {
@@ -231,5 +238,16 @@ object SelectStmt {
         SqliteOrderingTerm(e._1, e._2, isAsc, nullsLast)
       })
     }
+  }
+
+  object Limit {
+    def limitExpr[_ : P]: P[SqliteLimitExpr] =
+      P(
+        icWord("limit") ~ ws ~ expr ~
+        (
+          (ws ~ icWord("offset") ~ ws ~ expr) |
+          (ws.? ~ comma ~ ws.? ~ expr)
+        ).?
+      ).map(e => SqliteLimitExpr(e._1, e._2))
   }
 }
