@@ -14,6 +14,12 @@ class ExpressionTests extends UnitSpec {
       parse("column_name", expr(_))
     }
   }
+  "tmp.column_name (with expr parser)" should "be parsed as expression - column expr" in {
+    val expectedObj = SqliteColumnExpr(tableName = Some("tmp"), columnName = "column_name")
+    assertResult(Parsed.Success(expectedObj, 15)) {
+      parse("tmp.column_name", expr(_))
+    }
+  }
   "case when 1 + 3 > 1 then 10 else 0 end + 10 * 42" should "be parsed with case and bin op precedence" in {
     val expected = SqliteBinaryOp(
       op = ADD,
@@ -198,6 +204,14 @@ class BinaryExpressionTests extends UnitSpec {
       )
     )
     assertResult(Parsed.Success(expected, 24)) { parse("x = 1 OR 1 = 1 AND 0 = 0", expr(_)) }
+  }
+  "i.key_col = d.key_col" should "be parsed as simple binary operation" in {
+    val expected = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("i"), columnName = "key_col"),
+      right = SqliteColumnExpr(tableName = Some("d"), columnName = "key_col"),
+    )
+    assertResult(Parsed.Success(expected, 21)) { parse("i.key_col = d.key_col", expr(_)) }
   }
   "t1.col1 = t2.col1   AND    t1.col2  > t2.col2" should "be parsed as simple binary operation" in {
     val expected = SqliteBinaryOp(

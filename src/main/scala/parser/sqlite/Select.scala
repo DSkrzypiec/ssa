@@ -7,7 +7,27 @@ import dev.dskrzypiec.parser.sqlite.Identifier.id
 
 object SelectStmt {
   object Select {
-    //def select[_ : P]: P[SqliteSelect] = { }
+    def select[_ : P]: P[SqliteSelect] = {
+      P(
+        (ws.? ~ manyCtes).? ~
+        (ws.? ~ SelectCore.selectCore /* | TODO(values) */) ~
+        (ws ~ OrderBy.orderByExpr).? ~
+        (ws ~ Limit.limitExpr).?
+       ).map(e => e._1 match {
+         case None => SqliteSelect( // no CTEs
+           mainSelect = e._2,
+           orderBy = e._3,
+           limit = e._4
+         )
+          case Some(cte) => SqliteSelect( // with CTEs
+            ctesRecursive = cte._1,
+            ctes = Some(cte._2),
+            mainSelect = e._2,
+            orderBy = e._3,
+            limit = e._4
+          )
+       })
+    }
 
     def manyCtes[_ : P]: P[(Boolean, Seq[SqliteCommonTableExpr])] =
       P(
@@ -88,11 +108,11 @@ object SelectStmt {
     // Parser for JOIN expression. Usually like table -> JOIN op -> table ->
     // JOIN constraint with possibly many joins repeated.
     def joinExpr[_ : P]: P[SqliteJoinExpr] = P(
-      TableOrSub.tableOrSubquery ~ ws ~
+      TableOrSub.tableOrSubquery ~
       (
-        joinOperator ~ ws ~
+        ws.? ~ joinOperator ~ ws ~
         TableOrSub.tableOrSubquery ~ ws ~
-        joinConstrain
+        joinConstrain ~ ws.?
       ).rep(1)
     ).map(e => SqliteJoinExpr(firstTable = e._1, otherJoins = e._2))
 
@@ -128,7 +148,7 @@ object SelectStmt {
     }
 
     def joinInnerOp[_ : P]: P[SqliteJoinOperator] =
-      P(icWord("natural").? ~ ws ~ icWord("inner") ~ ws ~ icWord("join")).map(_ => SqliteJoinInner())
+      P((icWord("natural") ~ ws).? ~ icWord("inner") ~ ws ~ icWord("join")).map(_ => SqliteJoinInner())
 
     def joinCross[_ : P]: P[SqliteJoinOperator] =
       P(icWord("cross") ~ ws ~ icWord("join")).map(_ => SqliteJoinCross())

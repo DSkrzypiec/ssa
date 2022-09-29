@@ -14,6 +14,7 @@ case class SqliteSelect(
   ctesRecursive: Boolean = false,
   mainSelect: SqliteSelectCore,
   orderBy: Option[SqliteOrderByExpr] = None,
+  limit: Option[SqliteLimitExpr] = None,
 ) extends SqliteToken
 
 case class SqliteCommonTableExpr(

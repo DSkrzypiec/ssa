@@ -224,6 +224,175 @@ class SelectJoinsTests extends UnitSpec {
     )
     assertResult(Parsed.Success(expected, 55)) { parse("tableA a LEFT  join tableB b ON a.X = b.Z anD a.Y > b.A", Joins.joinExpr(_)) }
   }
+  """
+    tableA a
+  LEFT  join
+    tableB b ON a.X = b.Z
+        anD a.Y > b.A
+  """ should "be parsed as LEFT JOIN of two tables" in {
+    val input =
+    """tableA a
+  LEFT  join
+    tableB b ON a.X = b.Z
+        anD a.Y > b.A
+    """
+    val constrainExpr = SqliteBinaryOp(
+      op = AND,
+      left = SqliteBinaryOp(
+        op = EQUAL,
+        left = SqliteColumnExpr(tableName = Some("a"), columnName = "X"),
+        right = SqliteColumnExpr(tableName = Some("b"), columnName = "Z")
+      ),
+      right = SqliteBinaryOp(
+        op = GREATER_THEN,
+        left = SqliteColumnExpr(tableName = Some("a"), columnName = "Y"),
+        right = SqliteColumnExpr(tableName = Some("b"), columnName = "A")
+      )
+    )
+    val expected = SqliteJoinExpr(
+      firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableA", tableAlias = Some("a")))),
+      otherJoins = List(
+        (
+          SqliteJoinLeft(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableB", tableAlias = Some("b")))),
+          SqliteJoinConstraint(Some(constrainExpr))
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Joins.joinExpr(_)) }
+  }
+  """
+    tableA a
+  LEFT  join
+    tableB b ON a.X = b.Z
+        anD a.Y > b.A
+  INNER JOIN
+    tableC c ON a.Y = c.C
+  """ should "be parsed as LEFT JOIN of two tables" in {
+    val input =
+    """tableA a
+  LEFT  join
+    tableB b ON a.X = b.Z
+        anD a.Y > b.A
+  INNER JOIN
+    tableC c ON a.Y = c.C
+    """
+    val constrainExpr = SqliteBinaryOp(
+      op = AND,
+      left = SqliteBinaryOp(
+        op = EQUAL,
+        left = SqliteColumnExpr(tableName = Some("a"), columnName = "X"),
+        right = SqliteColumnExpr(tableName = Some("b"), columnName = "Z")
+      ),
+      right = SqliteBinaryOp(
+        op = GREATER_THEN,
+        left = SqliteColumnExpr(tableName = Some("a"), columnName = "Y"),
+        right = SqliteColumnExpr(tableName = Some("b"), columnName = "A")
+      )
+    )
+    val constrainExpr2 = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("a"), columnName = "Y"),
+      right = SqliteColumnExpr(tableName = Some("c"), columnName = "C")
+    )
+    val expected = SqliteJoinExpr(
+      firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableA", tableAlias = Some("a")))),
+      otherJoins = List(
+        (
+          SqliteJoinLeft(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableB", tableAlias = Some("b")))),
+          SqliteJoinConstraint(Some(constrainExpr))
+        ),
+        (
+          SqliteJoinInner(false),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "tableC", tableAlias = Some("c")))),
+          SqliteJoinConstraint(Some(constrainExpr2))
+        )
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Joins.joinExpr(_)) }
+  }
+  """
+    src.info i
+  LEFT JOIN
+    newItems ni ON i.item_id = ni.item_id
+  INNER JOIN
+    dict d ON i.key_col = d.key_col
+  """ should "be parsed as JOIN expr" in {
+    val input =
+      """src.info i
+      LEFT JOIN
+        newItems ni ON i.item_id = ni.item_id
+      INNER JOIN
+        dict d ON i.key_col = d.key_col"""
+    val constrainExpr1 = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("i"), columnName = "item_id"),
+      right = SqliteColumnExpr(tableName = Some("ni"), columnName = "item_id")
+    )
+    val constrainExpr2 = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("i"), columnName = "key_col"),
+      right = SqliteColumnExpr(tableName = Some("d"), columnName = "key_col")
+    )
+    val expected = SqliteJoinExpr(
+      firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = Some("src"), tableName = "info", tableAlias = Some("i")))),
+      otherJoins = List(
+        (
+          SqliteJoinLeft(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "newItems", tableAlias = Some("ni")))),
+          SqliteJoinConstraint(Some(constrainExpr1))
+        ),
+        (
+          SqliteJoinInner(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "dict", tableAlias = Some("d")))),
+          SqliteJoinConstraint(Some(constrainExpr2))
+        ),
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Joins.joinExpr(_)) }
+  }
+  """
+    src.info i
+  INNER JOIN
+    dict d ON i.key_col = d.key_col
+  LEFT JOIN
+    newItems ni ON i.item_id = ni.item_id
+  """ should "be parsed as JOIN expr" in {
+    val input =
+      """src.info i
+      INNER JOIN
+        dict d ON i.key_col = d.key_col
+      LEFT JOIN
+        newItems ni ON i.item_id = ni.item_id
+    """
+    val constrainExpr1 = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("i"), columnName = "key_col"),
+      right = SqliteColumnExpr(tableName = Some("d"), columnName = "key_col")
+    )
+    val constrainExpr2 = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("i"), columnName = "item_id"),
+      right = SqliteColumnExpr(tableName = Some("ni"), columnName = "item_id")
+    )
+    val expected = SqliteJoinExpr(
+      firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = Some("src"), tableName = "info", tableAlias = Some("i")))),
+      otherJoins = List(
+        (
+          SqliteJoinInner(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "dict", tableAlias = Some("d")))),
+          SqliteJoinConstraint(Some(constrainExpr1))
+        ),
+        (
+          SqliteJoinLeft(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "newItems", tableAlias = Some("ni")))),
+          SqliteJoinConstraint(Some(constrainExpr2))
+        ),
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Joins.joinExpr(_)) }
+  }
 }
 
 class SelectWhereTests extends UnitSpec {
@@ -482,6 +651,56 @@ class SelectCoreTests extends UnitSpec {
   }
   """
     SELECT
+    *
+  FROm
+    src.info i
+  INNER JOIN
+    dict d ON i.key_col = d.key_col
+  LEFT JOIN
+    newItems ni ON i.item_id = ni.item_id
+  """ should "be parsed as SELECT core statement" in {
+    val input = """SELECT
+        *
+      FROm
+        src.info i
+      INNER JOIN
+        dict d ON i.key_col = d.key_col
+      LEFT JOIN
+        newItems ni ON i.item_id = ni.item_id
+    """
+    val constrainExpr1 = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("i"), columnName = "key_col"),
+      right = SqliteColumnExpr(tableName = Some("d"), columnName = "key_col")
+    )
+    val constrainExpr2 = SqliteBinaryOp(
+      op = EQUAL,
+      left = SqliteColumnExpr(tableName = Some("i"), columnName = "item_id"),
+      right = SqliteColumnExpr(tableName = Some("ni"), columnName = "item_id")
+    )
+    val joinExpr = SqliteJoinExpr(
+      firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = Some("src"), tableName = "info", tableAlias = Some("i")))),
+      otherJoins = List(
+        (
+          SqliteJoinInner(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "dict", tableAlias = Some("d")))),
+          SqliteJoinConstraint(Some(constrainExpr1))
+        ),
+        (
+          SqliteJoinLeft(),
+          SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "newItems", tableAlias = Some("ni")))),
+          SqliteJoinConstraint(Some(constrainExpr2))
+        ),
+      )
+    )
+    val expected = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(cols = Seq(SqliteResultCol(isStar = true))),
+      from = Some(SqliteSelectFrom(joinExpr = Some(joinExpr)))
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
+  }
+  """
+    SELECT
       a.a,
       b.b,
       SUM(a.a + b.b * 10) AS C
@@ -587,6 +806,97 @@ class SelectCoreTests extends UnitSpec {
       where = Some(SqliteWhereExpr(condition = SqliteBinaryOp(op = GREATER_THEN, left = a, right = b))),
       groupBy = Some(SqliteGroupByExpr(Seq(a, b))),
       having = Some(having)
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
+  }
+  """
+    SELECT
+      a.a,
+      b.b,
+      c.c
+    FROM
+      tableA a
+    INNER JOIN
+      tableB b ON a.ID = b.ID
+    left join
+      tableC c on b.ID_2 = c.ID
+  """ should "be parsed as full SELECT core with 2 joins" in {
+    val input =
+  """SELECT
+      a.a,
+      b.b,
+      c.c
+    FROM
+      tableA a
+    INNER JOIN
+      tableB b ON a.ID = b.ID
+    left join
+      tableC c on b.ID_2 = c.ID
+  """
+    val a = SqliteColumnExpr(tableName = Some("a"), columnName = "a")
+    val b = SqliteColumnExpr(tableName = Some("b"), columnName = "b")
+    val c = SqliteColumnExpr(tableName = Some("c"), columnName = "c")
+    val aResCol = SqliteResultCol(colExpr = Some(a))
+    val bResCol = SqliteResultCol(colExpr = Some(b))
+    val cResCol = SqliteResultCol(colExpr = Some(c))
+    val cols = SqliteSelectColumns(
+        cols = Seq(aResCol, bResCol, cResCol)
+    )
+    val joins = SqliteJoinExpr(
+      firstTable = SqliteTableOrSubquery(
+        table = Some(
+          SqliteTableName(
+            tableName = "tableA",
+            tableAlias = Some("a")
+          )
+        )
+      ),
+      otherJoins = Seq(
+        (
+          SqliteJoinInner(),
+          SqliteTableOrSubquery(
+            table = Some(
+              SqliteTableName(
+                tableName = "tableB",
+                tableAlias = Some("b")
+              )
+            )
+          ),
+          SqliteJoinConstraint(
+            joinExpression = Some(
+              SqliteBinaryOp(
+                op = EQUAL,
+                left = SqliteColumnExpr(tableName = Some("a"), columnName = "ID"),
+                right = SqliteColumnExpr(tableName = Some("b"), columnName = "ID"),
+              )
+            )
+          )
+        ),
+        (
+          SqliteJoinLeft(),
+          SqliteTableOrSubquery(
+            table = Some(
+              SqliteTableName(
+                tableName = "tableC",
+                tableAlias = Some("c")
+              )
+            )
+          ),
+          SqliteJoinConstraint(
+            joinExpression = Some(
+              SqliteBinaryOp(
+                op = EQUAL,
+                left = SqliteColumnExpr(tableName = Some("b"), columnName = "ID_2"),
+                right = SqliteColumnExpr(tableName = Some("c"), columnName = "ID"),
+              )
+            )
+          )
+        )
+      )
+    )
+    val expected = SqliteSelectCore(
+      selectCols = cols,
+      from = Some(SqliteSelectFrom(joinExpr = Some(joins)))
     )
     assertResult(Parsed.Success(expected, input.length)) { parse(input, SelectCore.selectCore(_)) }
   }
@@ -810,5 +1120,276 @@ class SelectSingleCteTests extends UnitSpec {
     )
     val expected = SqliteCommonTableExpr(cteName = "tmp1", isMaterialized = true, cteBody = sel)
     assertResult(Parsed.Success(expected, input.length)) { parse(input, CTE.singleCTE(_)) }
+  }
+}
+
+class SelectManyCtesTests extends UnitSpec {
+  "WITH tmp1 AS (SELECT 1 AS A),  tmp2  AS (SELECT 2 AS B)" should "be parsed as CTEs" in {
+    val input = "WITH tmp1 AS (SELECT 1 AS A),  tmp2  AS (SELECT 2 AS B)"
+    val tmp1 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A")))
+      )
+    )
+    val tmp2 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteIntegerLit(2)), colAlias = Some("B")))
+      )
+    )
+    val expected = (false,
+      Seq(
+        SqliteCommonTableExpr(
+          cteName = "tmp1",
+          cteBody = tmp1,
+        ),
+        SqliteCommonTableExpr(
+          cteName = "tmp2",
+          cteBody = tmp2,
+        ),
+      )
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Select.manyCtes(_)) }
+  }
+}
+
+class SelectTests extends UnitSpec {
+  "SELECT 1 AS A" should "be parsed as simple SELECT using Select.select" in {
+    val expected = SqliteSelect(
+      mainSelect = SqliteSelectCore(
+        selectCols = SqliteSelectColumns(
+          cols = Seq(SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A")))
+        ),
+      )
+    )
+    assertResult(Parsed.Success(expected, 13)) { parse("SELECT 1 AS A", Select.select(_)) }
+  }
+  "SELECT a, b FROM tableA" should "be parsed as simple SELECT statement using Select.select" in {
+    val expected = SqliteSelect(
+      mainSelect = SqliteSelectCore(
+        selectCols = SqliteSelectColumns(
+          cols = Seq(
+            SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "a"))),
+            SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
+          )
+        ),
+        from = Some(SqliteSelectFrom(
+          tableOrSubquery = Some(
+            SqliteTableOrSubquery(
+              table = Some(SqliteTableName(tableName = "tableA")))
+            )
+        ))
+      )
+    )
+    assertResult(Parsed.Success(expected, 23)) { parse("SELECT a, b FROM tableA", Select.select(_)) }
+  }
+  "SELECT a, b FROM tableA order BY b DESC LIMIT 10" should "be parsed as simple SELECT statement using Select.select" in {
+    val input = "SELECT a, b FROM tableA order BY b DESC LIMIT 10"
+    val order = SqliteOrderByExpr(
+      orderingTerms = Seq(
+        SqliteOrderingTerm(expr = SqliteColumnExpr(columnName = "b"), ascending = false)
+      )
+    )
+    val limit = SqliteLimitExpr(limitExpr = SqliteIntegerLit(10))
+    val expected = SqliteSelect(
+      mainSelect = SqliteSelectCore(
+        selectCols = SqliteSelectColumns(
+          cols = Seq(
+            SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "a"))),
+            SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
+          )
+        ),
+        from = Some(SqliteSelectFrom(
+          tableOrSubquery = Some(
+            SqliteTableOrSubquery(
+              table = Some(SqliteTableName(tableName = "tableA")))
+            )
+        ))
+      ),
+      orderBy = Some(order),
+      limit = Some(limit),
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Select.select(_)) }
+  }
+  """
+  WITH dict AS (
+      SELECT 1 as Key, 'X' AS Value
+  )
+  SELECT
+    *
+  FROm
+    dict
+  """ should "be parsed as SELECT with many CTEs" in {
+    val input = """
+      WITH dict AS (
+          SELECT 1 as Key, 'X' AS Value
+      )
+      SELECT
+        *
+      FROm
+        dict
+    """
+    val dictSel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("Key")),
+          SqliteResultCol(colExpr = Some(SqliteStringLit("X")), colAlias = Some("Value")),
+        )
+      ),
+    )
+    val mainSelect = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(cols = Seq(SqliteResultCol(isStar = true))),
+      from = Some(
+        SqliteSelectFrom(
+          tableOrSubquery = Some(
+            SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "dict")))
+          )
+        )
+      )
+    )
+    val expected = SqliteSelect(
+      ctes = Some(
+        Seq(
+          SqliteCommonTableExpr(
+            cteName = "dict",
+            cteBody = dictSel,
+          )
+        )
+      ),
+      mainSelect = mainSelect,
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Select.select(_)) }
+  }
+  """
+  WITH dict AS (
+      SELECT 1 AS Key, 'Damian' as Value
+      union all
+      SELECT 2, 'Skrzypiec'
+  ),
+  newItems AS (
+    SELECT * FROM src.items WHERE is_new = 1
+  )
+  SELECT
+    *
+  FROm
+    src.info i
+  INNER JOIN
+    dict d ON i.key_col = d.key_col
+  LEFT JOIN
+    newItems ni ON i.item_id = ni.item_id
+  """ should "be parsed as SELECT with many CTEs" in {
+    val input = """
+    WITH dict AS (
+        SELECT 1 AS Key, 'Damian' as Value
+        union all
+        SELECT 2, 'Skrzypiec'
+    ),
+    newItems AS (
+      SELECT * FROM src.items WHERE is_new = 1
+    )
+    SELECT
+      *
+    FROm
+      src.info i
+    INNER JOIN
+      dict d ON i.key_col = d.key_col
+    LEFT JOIN
+      newItems ni ON i.item_id = ni.item_id
+    """
+    val dictSel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("Key")),
+          SqliteResultCol(colExpr = Some(SqliteStringLit("Damian")), colAlias = Some("Value")),
+        )
+      ),
+      setOp = Some(
+        SqliteSetExpr(
+          SqliteUnionAll(),
+          SqliteSelectCore(
+            selectCols = SqliteSelectColumns(
+              cols = Seq(
+                SqliteResultCol(colExpr = Some(SqliteIntegerLit(2))),
+                SqliteResultCol(colExpr = Some(SqliteStringLit("Skrzypiec")))
+              )
+            )
+          )
+        )
+      )
+    )
+    val newItems = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(cols = Seq(SqliteResultCol(isStar = true))),
+      from = Some(
+        SqliteSelectFrom(
+          tableOrSubquery = Some(
+            SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = Some("src"), tableName = "items")))
+          )
+        )
+      ),
+      where = Some(
+        SqliteWhereExpr(
+          condition = SqliteBinaryOp(
+            op = EQUAL,
+            left = SqliteColumnExpr(columnName = "is_new"),
+            right = SqliteIntegerLit(1)
+          )
+        )
+      )
+    )
+    val mainSelect = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(cols = Seq(SqliteResultCol(isStar = true))),
+      from = Some(
+        SqliteSelectFrom(
+          joinExpr = Some(
+            SqliteJoinExpr(
+              firstTable = SqliteTableOrSubquery(table = Some(SqliteTableName(schemaName = Some("src"), tableName = "info", tableAlias = Some("i")))),
+              otherJoins = List(
+                (
+                  SqliteJoinInner(false),
+                  SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "dict", tableAlias = Some("d")))),
+                  SqliteJoinConstraint(
+                    joinExpression = Some(
+                      SqliteBinaryOp(
+                        op = EQUAL,
+                        left = SqliteColumnExpr(tableName = Some("i"), columnName = "key_col"),
+                        right = SqliteColumnExpr(tableName = Some("d"), columnName = "key_col"),
+                      )
+                    )
+                  )
+                ),
+                (
+                  SqliteJoinLeft(),
+                  SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "newItems", tableAlias = Some("ni")))),
+                  SqliteJoinConstraint(
+                    joinExpression = Some(
+                      SqliteBinaryOp(
+                        op = EQUAL,
+                        left = SqliteColumnExpr(tableName = Some("i"), columnName = "item_id"),
+                        right = SqliteColumnExpr(tableName = Some("ni"), columnName = "item_id"),
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+    val expected = SqliteSelect(
+      ctes = Some(
+        Seq(
+          SqliteCommonTableExpr(
+            cteName = "dict",
+            cteBody = dictSel,
+          ),
+          SqliteCommonTableExpr(
+            cteName = "newItems",
+            cteBody = newItems,
+          ),
+        )
+      ),
+      mainSelect = mainSelect,
+    )
+    assertResult(Parsed.Success(expected, input.length)) { parse(input, Select.select(_)) }
   }
 }
