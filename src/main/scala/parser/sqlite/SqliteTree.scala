@@ -153,7 +153,7 @@ case class SqliteCaseExpr(
   whenThens: List[SqliteCaseWhenThen],
   elseExpr: Option[SqliteExpr] = None
 ) extends SqliteExpr
-case class SqliteCaseWhenThen(when: SqliteExpr, then: SqliteExpr) extends SqliteExpr
+case class SqliteCaseWhenThen(when: SqliteExpr, then: SqliteExpr)
 
 // Function call
 case class SqliteFuncCall(
@@ -171,12 +171,11 @@ case object SUM extends SqliteFunction
 case object AVG extends SqliteFunction
 
 // Binary expressions and operators
-sealed trait SqliteBinaryOpExpr extends SqliteExpr
 case class SqliteBinaryOp(
   op: SqliteBinaryOpSign,
   left: SqliteExpr,
   right: SqliteExpr,
-) extends SqliteBinaryOpExpr
+) extends SqliteExpr
 
 sealed trait SqliteBinaryOpSign
 case object ADD extends SqliteBinaryOpSign
