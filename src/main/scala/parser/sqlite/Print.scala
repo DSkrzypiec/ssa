@@ -13,7 +13,13 @@ object Print {
   }
 
   def selectCore(q: SqliteSelectCore, indent: Int = 0): String = {
-    indLvl(indent) + "SELECT" + NewLine
+    indLvl(indent) + "SELECT" + NewLine +
+    selectCols(q.selectCols, indent + 1) + NewLine +
+    stringWithNewLineOrEmpty(q.from, selectFrom, indent) +
+    stringWithNewLineOrEmpty(q.where, whereExpr, indent) +
+    stringWithNewLineOrEmpty(q.groupBy, groupByExpr, indent) +
+    stringWithNewLineOrEmpty(q.having, havingExpr, indent) +
+    stringWithNewLineOrEmpty(q.setOp, setOpExpr, indent, skipNewLine = true)
   }
 
   def selectCols(cols: SqliteSelectColumns, indent: Int = 0): String = {
@@ -94,8 +100,9 @@ object Print {
         case None => ""
         case Some(alias) => SingleSpace + "AS" + SingleSpace + query.subQuery.get.alias.get
       })
+    } else {
+      "!EVEN TABLE OR SUBQUERY IS NOT DEFINED!"
     }
-    "!EVEN TABLE OR SUBQUERY IS NOT DEFINED!"
   }
 
   def tableName(t: SqliteTableName, indent: Int = 0): String = {
@@ -154,6 +161,11 @@ object Print {
     }
 
     sb.toString
+  }
+
+  def setOpExpr(q: SqliteSetExpr, indent: Int = 0): String = {
+    indLvl(indent) + setOperatorToString(q.setOp) + NewLine +
+    selectCore(q.anotherSelect, indent)
   }
 
   def sqliteExpr(expr: SqliteExpr): String = {
@@ -283,6 +295,16 @@ object Print {
     str match {
       case Some(s) => indLvl(indent) + s
       case None => ""
+    }
+  }
+
+  def stringWithNewLineOrEmpty[T](
+    t: Option[T], f: (T, Int) => String, indent: Int = 0,
+    skipNewLine: Boolean = false): String = {
+    (t, skipNewLine) match {
+      case (None, _) => ""
+      case (Some(obj), false) => f(obj, indent) + NewLine
+      case (Some(obj), true) => f(obj, indent)
     }
   }
 }

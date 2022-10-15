@@ -452,5 +452,186 @@ class PrintJoinExprTests extends UnitSpec {
 }
 
 class PrintSelectFromExprTests extends UnitSpec {
-  // TODO
+  "FROM schemaName.tableName" should "be printed as FROM with indent=1" in {
+    val input = SqliteSelectFrom(
+      tableOrSubquery = Some(SqliteTableOrSubquery(Some(SqliteTableName(Some("schemaName"), "tableName"))))
+    )
+    val expected =
+"""    FROM
+        schemaName.tableName"""
+    assertResult(expected) { Print.selectFrom(input, 1) }
+  }
+  "FROM schemaName.tableName" should "be printed as FROM with indent=2" in {
+    val input = SqliteSelectFrom(
+      tableOrSubquery = Some(SqliteTableOrSubquery(Some(SqliteTableName(Some("schemaName"), "tableName"))))
+    )
+    val expected =
+"""        FROM
+            schemaName.tableName"""
+    assertResult(expected) { Print.selectFrom(input, 2) }
+  }
+  "FROM src.table1 t1 LEFT JOIN src.table2 t2 ON t1.col1 = t2.col1" should "be printed with indent=1" in {
+    val inputJoin = SqliteJoinExpr(
+      firstTable = SqliteTableOrSubquery(Some(SqliteTableName(Some("src"), "table1", Some("t1")))),
+      otherJoins = Seq(
+        (
+          SqliteJoinLeft(),
+          SqliteTableOrSubquery(Some(SqliteTableName(Some("src"), "table2", Some("t2")))),
+          SqliteJoinConstraint(
+            joinExpression = Some(SqliteBinaryOp(EQUAL, SqliteColumnExpr(None, Some("t1"), "col1"), SqliteColumnExpr(None, Some("t2"), "col1")))
+          )
+        )
+      )
+    )
+    val input = SqliteSelectFrom(joinExpr = Some(inputJoin))
+    val expected =
+"""    FROM
+        src.table1 AS t1
+    LEFT JOIN
+        src.table2 AS t2 ON t1.col1 = t2.col1"""
+    assertResult(expected) { Print.selectFrom(input, 1) }
+  }
+}
+
+class PrintSelectSetOpTests extends UnitSpec {
+  "SELECT col1 FROM table1 UNION ALL SELECT col2 FROM table2" should "be printed as SET op with indent=1" in {
+    val sel2 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col2"))))
+      ),
+      from = Some(SqliteSelectFrom(tableOrSubquery = Some(SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "table2"))))))
+    )
+    val input = SqliteSetExpr(SqliteUnionAll(), sel2)
+    val expected =
+"""    UNION ALL
+    SELECT
+        col2
+    FROM
+        table2
+"""
+    assertResult(expected) { Print.setOpExpr(input, 1) }
+  }
+}
+
+class PrintSelectCoreTests extends UnitSpec {
+  "SELECT col1, col2 FROM src.table1 WHERE col1 > 42" should "be printed as SELECT core with indent=1" in {
+    val input = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col1"))),
+          SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col2"))),
+        )
+      ),
+      from = Some(SqliteSelectFrom(
+        tableOrSubquery = Some(
+          SqliteTableOrSubquery(
+            table = Some(SqliteTableName(schemaName = Some("src"), tableName = "table1"))
+          )
+        )
+      )),
+      where = Some(
+        SqliteWhereExpr(
+          condition = SqliteBinaryOp(
+            op = GREATER_THEN,
+            left = SqliteColumnExpr(columnName = "col1"),
+            right = SqliteIntegerLit(42)
+          )
+        )
+      )
+    )
+    val expected =
+"""    SELECT
+        col1,
+        col2
+    FROM
+        src.table1
+    WHERE
+        col1 > 42
+"""
+    assertResult(expected) { Print.selectCore(input, 1) }
+  }
+  "SELECT col1 FROM table1 UNION ALL SELECT col2 FROM table2" should "be printed as SET op with indent=1" in {
+    val sel2 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col2"))))
+      ),
+      from = Some(SqliteSelectFrom(tableOrSubquery = Some(SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "table2"))))))
+    )
+    val input = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "col1"))))
+      ),
+      from = Some(SqliteSelectFrom(tableOrSubquery = Some(SqliteTableOrSubquery(table = Some(SqliteTableName(tableName = "table1")))))),
+      setOp = Some(SqliteSetExpr(SqliteUnionAll(), sel2))
+    )
+    val expected =
+"""    SELECT
+        col1
+    FROM
+        table1
+    UNION ALL
+    SELECT
+        col2
+    FROM
+        table2
+"""
+    assertResult(expected) { Print.selectCore(input, 1) }
+  }
+  """
+  SELECT
+    x.col1 + x.col2 AS newX
+  FROM
+  (
+    SELECT
+      1 AS col1,
+      2 AS col2
+  ) x
+  """ should "be printed as SELECT core with indent=2" in {
+    val cols = SqliteSelectColumns(
+      cols = Seq(
+        SqliteResultCol(
+          colExpr = Some(
+            SqliteBinaryOp(
+              op = ADD,
+              left = SqliteColumnExpr(tableName = Some("x"), columnName = "col1"),
+              right = SqliteColumnExpr(tableName = Some("x"), columnName = "col2"),
+            )
+          ),
+          colAlias = Some("newX")
+        )
+      )
+    )
+    val subQuerySelect = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("col1")),
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(2)), colAlias = Some("col2")),
+        )
+      )
+    )
+    val from = SqliteSelectFrom(
+      tableOrSubquery = Some(
+        SqliteTableOrSubquery(
+          subQuery = Some(
+            SqliteSelectSubquery(
+              subQuery = subQuerySelect,
+              alias = Some("x")
+            )
+          )
+        )
+      )
+    )
+    val input = SqliteSelectCore(selectCols = cols, from = Some(from))
+    val expected =
+"""        SELECT
+            x.col1 + x.col2 AS newX
+        FROM
+            (
+                SELECT
+                    1 AS col1,
+                    2 AS col2
+            ) AS x
+"""
+    assertResult(expected) { Print.selectCore(input, 2) }
+  }
 }
