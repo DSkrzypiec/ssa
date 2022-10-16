@@ -4,12 +4,15 @@ object Print {
   private final val SingleSpace = " "
   private final val NewLine = sys.props("line.separator")
 
-  def sqliteSelect(q: SqliteSelect): String = {
-    "TODO"
-  }
-
-  def cte(q: SqliteCommonTableExpr): String = {
-    "TODO"
+  def select(q: SqliteSelect, indent: Int = 0): String = {
+    (
+      q.ctes match {
+        case None => ""
+        case Some(ctes) => manyCtes(ctes, indent, q.ctesRecursive) + NewLine
+      }
+    ) + selectCore(q.mainSelect, indent) +
+    stringWithNewLineOrEmpty(q.orderBy, orderByExpr, indent) +
+    stringWithNewLineOrEmpty(q.limit, limitExpr, indent)
   }
 
   def selectCore(q: SqliteSelectCore, indent: Int = 0): String = {
@@ -20,6 +23,47 @@ object Print {
     stringWithNewLineOrEmpty(q.groupBy, groupByExpr, indent) +
     stringWithNewLineOrEmpty(q.having, havingExpr, indent) +
     stringWithNewLineOrEmpty(q.setOp, setOpExpr, indent, skipNewLine = true)
+  }
+
+  def manyCtes(ctes: Seq[SqliteCommonTableExpr], indent: Int = 0, isRecursive: Boolean = false): String = {
+    if (ctes.length == 0) {
+      return "!EXPECTED AT LEAST ONE CTE, GOT ZERO!"
+    }
+    indLvl(indent) + "WITH" + {
+      isRecursive match {
+        case true => SingleSpace + "RECURSIVE"
+        case false => ""
+      }
+    } + SingleSpace + cte(ctes.head, 0, true) + "," + NewLine +
+    ctes.tail.map(e => cte(e, indent, false)).mkString("," + NewLine)
+  }
+
+  def cte(q: SqliteCommonTableExpr, indent: Int = 0, startWithIndent: Boolean = true): String = {
+    (
+      startWithIndent match {
+        case true => indLvl(indent)
+        case false => ""
+      }
+    ) +
+    q.cteName + SingleSpace +
+    cteColumns(q.cteColNames) + "AS" + SingleSpace +
+    cteMaterialized(q.isMaterialized) + "(" + NewLine +
+    selectCore(q.cteBody, indent + 1) +
+    indLvl(indent) + ")"
+  }
+
+  def cteColumns(columns: Option[Seq[String]]): String = {
+    columns match {
+      case None => ""
+      case Some(cols) => "(" + cols.mkString(sep = ", ") + ")" + SingleSpace
+    }
+  }
+
+  def cteMaterialized(isMaterialized: Boolean = false): String = {
+    isMaterialized match {
+      case false => ""
+      case true => "MATERIALIZED" + SingleSpace
+    }
   }
 
   def selectCols(cols: SqliteSelectColumns, indent: Int = 0): String = {

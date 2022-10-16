@@ -635,3 +635,95 @@ class PrintSelectCoreTests extends UnitSpec {
     assertResult(expected) { Print.selectCore(input, 2) }
   }
 }
+
+class PrintCteExprTests extends UnitSpec {
+  "tmp1 AS (SELECT 1 AS A)" should "be printed as simple single CTE" in {
+    val sel = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(
+          SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A"))
+        )
+      )
+    )
+    val input = SqliteCommonTableExpr(cteName = "tmp1", cteBody = sel)
+    val expected =
+"""    tmp1 AS (
+        SELECT
+            1 AS A
+    )"""
+    assertResult(expected) { Print.cte(input, 1) }
+  }
+  "WITH tmp1 AS (SELECT 1 AS A), tmp2  AS (SELECT 2 AS B)" should "be printed as two CTE without indent" in {
+    val tmp1 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteIntegerLit(1)), colAlias = Some("A")))
+      )
+    )
+    val tmp2 = SqliteSelectCore(
+      selectCols = SqliteSelectColumns(
+        cols = Seq(SqliteResultCol(colExpr = Some(SqliteIntegerLit(2)), colAlias = Some("B")))
+      )
+    )
+    val input = Seq(
+      SqliteCommonTableExpr(
+        cteName = "tmp1",
+        cteBody = tmp1,
+      ),
+      SqliteCommonTableExpr(
+        cteName = "tmp2",
+        cteBody = tmp2,
+      ),
+    )
+    val expected =
+"""WITH tmp1 AS (
+    SELECT
+        1 AS A
+),
+tmp2 AS (
+    SELECT
+        2 AS B
+)"""
+    assertResult(expected) { Print.manyCtes(input, 0) }
+  }
+}
+
+class PrintSelectTests extends UnitSpec {
+  "SELECT a, b FROM tableA order BY b DESC LIMIT 10" should "be printed as select with order and limit" in {
+    val order = SqliteOrderByExpr(
+      orderingTerms = Seq(
+        SqliteOrderingTerm(expr = SqliteColumnExpr(columnName = "b"), ascending = false)
+      )
+    )
+    val limit = SqliteLimitExpr(limitExpr = SqliteIntegerLit(10))
+    val input = SqliteSelect(
+      mainSelect = SqliteSelectCore(
+        selectCols = SqliteSelectColumns(
+          cols = Seq(
+            SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "a"))),
+            SqliteResultCol(colExpr = Some(SqliteColumnExpr(columnName = "b"))),
+          )
+        ),
+        from = Some(SqliteSelectFrom(
+          tableOrSubquery = Some(
+            SqliteTableOrSubquery(
+              table = Some(SqliteTableName(tableName = "tableA")))
+            )
+        ))
+      ),
+      orderBy = Some(order),
+      limit = Some(limit),
+    )
+    val expected =
+"""    SELECT
+        a,
+        b
+    FROM
+        tableA
+    ORDER BY
+        b DESC
+    LIMIT
+        10
+"""
+    assertResult(expected) { Print.select(input, 1) }
+  }
+}
